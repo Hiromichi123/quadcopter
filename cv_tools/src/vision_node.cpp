@@ -3,36 +3,30 @@
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <vision/msg/vision.hpp>
 #include <cv_bridge/cv_bridge.h>
+#include <opencv2/opencv.hpp>
+
 #include "cv_tools.hpp"
+#include "cv_pipeline.hpp"
 
 class VisionPubNode : public rclcpp::Node {
     public:
         VisionPubNode() : Node("vision_pub") {
-            vision_pub_ = this->create_publisher<vision::msg::Vision>("vision", 10);
+            vision_pub = this->create_publisher<vision::msg::Vision>("vision", 10);
             // frame_pub = this->create_publisher<sensor_msgs::msg::CompressedImage>("frame", 10); // 发布压缩图像调试
-    
             frame_sub = this->create_subscription<sensor_msgs::msg::Image>("/camera/ground", 1, std::bind(&VisionPubNode::ground_callback, this, std::placeholders::_1));
-            
             bridge = std::make_shared<cv_bridge::CvBridge>();
             cv_tools = std::make_shared<CVTools>(this);  // 创建工具类实例
-    
-            msg_.is_line_detected = false;
-            msg_.lateral_error = 0;
-            msg_.angle_error = 0.0;
-            msg_.is_square_detected = false;
-            msg_.center_x1_error = 0;
-            msg_.center_y1_error = 0;
-            msg_.is_circle_detected = false;
-            msg_.center_x2_error = 0;
-            msg_.center_y2_error = 0;
-    
             RCLCPP_INFO(this->get_logger(), "Init complete");
         }
     
     private:
         void ground_callback(const sensor_msgs::msg::Image::SharedPtr msg) {
+            if (msg->data.empty()) { // 检查图像是否为空
+                RCLCPP_ERROR(this->get_logger(), "Empty image received");
+                return;
+            }
             try {
-                cv::Mat cv_image = bridge_->imgmsg_to_cv2(msg, "bgr8");
+                cv::Mat cv_image = bridge->imgmsg_to_cv2(msg, "bgr8");
                 process(cv_image);
             } catch (const cv_bridge::Exception& e) {
                 RCLCPP_ERROR(this->get_logger(), "Error convert image: %s", e.what());
@@ -41,26 +35,34 @@ class VisionPubNode : public rclcpp::Node {
     
         void process(cv::Mat frame) {
             try {
-                cv::Mat detect_copy2 = cv_tools->red_circle_detect(frame);  // 红色圆形检测
-                // cv::imshow("red", detect_copy2);
+                frame1 = frame.clone();
+                cvPipeline red_circle_pipe; // 红色圆形检测管道
+                red_circle_pipe.do(GaussianBlur, 5)
+                              .do(Canny, 100, 200)
+                              .process(&frame1);
+                // cv::imshow("red", frame1);
                 
-                cv::Mat detect_copy1 = cv_tools->yellow_square_detect(frame);  // 矩形检测
-                // cv::imshow("yellow", detect_copy1);
+                frame2 = frame.clone();
+                cvPipeline yellow_square_pipe; // 黄色矩形检测管道
+                yellow_square_pipe.do(GaussianBlur, 5)
+                                 .do(Canny, 100, 200)
+                                 .process(&frame2);
+                // cv::imshow("yellow", frame2);
+                
+    
+                frame3 = frame(cv::Range::all(), cv::Range(frame.cols / 6, frame.cols - frame.cols / 6));
+                cvPipeline line_detect_pipe; // 直线检测管道
+                line_detect_pipe.do(cvtColor, cv::COLOR_BGR2GRAY)
+                               .do(threshold, 100, 255, cv::THRESH_BINARY)
+                               .process(&frame3);
+                // cv::imshow("line", frame3);
+                cv::Mat hl_copy = cv_tools->line_detect(frame3);  // 霍夫直线
+                // cv::imshow("霍夫直线效果", hl_copy);
                 // cv::waitKey(1);
                 
-                // frame_pub->publish(*bridge->cv2_to_compressed_imgmsg(detect_copy1));
-    
-                frame = frame(cv::Range::all(), cv::Range(frame.cols / 6, frame.cols - frame.cols / 6));
-                cv::Mat gray_frame;
-                cv::cvtColor(frame, gray_frame, cv::COLOR_BGR2GRAY);
-                
-                cv::Mat thresh_frame;
-                cv::threshold(gray_frame, thresh_frame, 100, 255, cv::THRESH_BINARY);
-                
-                cv::Mat hl_copy = cv_tools->line_detect(thresh_frame);  // 霍夫直线
-                // cv::imshow("霍夫直线效果", hl_copy);
-                
-                vision_pub_->publish(msg_);
+                vision_pub->publish(vision_msg);
+                // frame_pub->publish(*bridge->cv2_to_compressed_imgmsg(frame1)); // 发布压缩图像调试
+
             } catch (const std::exception& e) {
                 RCLCPP_ERROR(this->get_logger(), "Error occurred: %s", e.what());
             }
@@ -71,7 +73,7 @@ class VisionPubNode : public rclcpp::Node {
         rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr frame_sub;
         std::shared_ptr<cv_bridge::CvBridge> bridge;
         std::shared_ptr<CVTools> cv_tools;
-        vision::msg::Vision msg;
+        vision::msg::Vision vision_msg;
     };
     
     int main(int argc, char** argv) {
