@@ -13,18 +13,18 @@ void cvtColor(cv::Mat& image, int code) {
     cv::cvtColor(image, image, code);
 }
 
-// 二值化
+// 二值化，返回threshold
 // type: cv::THRESH_BINARY, cv::THRESH_BINARY_INV, cv::THRESH_TRUNC, cv::THRESH_TOZERO, cv::THRESH_TOZERO_INV
-void threshold(cv::Mat& image, double thresh, double maxval, int type) {
-    cv::threshold(image, thresh, maxval, type);
+void threshold(cv::Mat& image, double threshold, double maxval, int type) {
+    cv::threshold(image, threshold, maxval, type);
 }
 
-// Canny边缘检测
-void Canny(cv::Mat& image, double threshold1, double threshold2) {
-    cv::Canny(image, threshold1, threshold2);
+// Canny边缘检测，返回edges
+void Canny(cv::Mat& image, cv::Mat& edges, double threshold1, double threshold2) {
+    cv::Canny(image, edges, threshold1, threshold2);
 }
 
-// 提取轮廓
+// 提取轮廓，返回contours
 // mode: cv::RETR_EXTERNAL, cv::RETR_LIST, cv::RETR_CCOMP, cv::RETR_TREE
 void findContours(cv::Mat& image, std::vector<std::vector<cv::Point>>& contours, int mode, int method) {
     cv::findContours(image, contours, mode, method);
@@ -38,12 +38,12 @@ void mask(cv::Mat& image, const cv::Scalar& lower, const cv::Scalar& upper) {
 }
 
 // 双区间掩膜操作
-void mask(cv::Mat& image1, cv::Scalar& lower1, cv::Scalar& upper1, cv::Scalar& lower2, cv::Scalar& upper2) {
+void mask(cv::Mat& image, cv::Scalar& lower1, cv::Scalar& upper1, cv::Scalar& lower2, cv::Scalar& upper2) {
     cv::Mat mask1, mask2;
-    cv::inRange(image1, lower1, upper1, mask1);
-    cv::inRange(image1, lower2, upper2, mask2);
+    cv::inRange(image, lower1, upper1, mask1);
+    cv::inRange(image, lower2, upper2, mask2);
     cv::bitwise_or(mask1, mask2, mask1); // 或操作
-    cv::bitwise_and(image1, image1, image1, mask1); // 与操作
+    cv::bitwise_and(image, image, image, mask1); // 与操作
 }
 
 // 霍夫圆检测

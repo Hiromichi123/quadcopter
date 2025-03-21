@@ -99,14 +99,15 @@ public:
     // 黄方检测
     cv::Mat yellow_square_detect(const cv::Mat& frame) {
         std::vector<std::vector<cv::Point>> contours; // 存储轮廓
+        cv::Mat threshold, edges;
         cv::Mat frame_copy = frame.clone();
 
         cv_pipeline image_pipe;
         image_pipe.do(cv::COLOR_BGR2HSV) // 图像管道
                   .do(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
                   .do(cv::COLOR_BGR2GRAY)
-                  .do(threshold, 150, 255, cv::THRESH_BINARY)
-                  .do(Canny, 100, 200)
+                  .do(threshold, threshold, 150, 255, cv::THRESH_BINARY)
+                  .do(Canny, edges, 100, 200)
                   .do(findContours, contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
                   .process(&frame_copy);
         
@@ -142,25 +143,9 @@ public:
         return frame_copy;
     }
 
-    // 过滤轮廓，并执行检测
-    cv::Mat detect_contours(const std::vector<std::vector<cv::Point>>& contours, const cv::Mat& frame) {
-        cv::Mat frame_copy = frame.clone();
-        for (const auto& contour : contours) {
-            cv::Rect rect = cv::boundingRect(contour);
-            if (0.8 < static_cast<double>(rect.width) / rect.height && static_cast<double>(rect.width) / rect.height < 1.25) {
-                cv::Mat frame_roi = frame(cv::Range(rect.y - 5, rect.y + rect.height + 5),
-                                      cv::Range(rect.x - 5, rect.x + rect.width + 5)).clone();
-                if (!frame_roi.empty()) {
-                    hsv_detect(frame_copy, frame_roi, contour);
-                }
-            }
-        }
-        return frame_copy;
-    }
-
     // hsv空间的霍夫检测
-    void hsv_detect(cv::Mat& frame_copy, const cv::Mat& roi_img, const std::vector<cv::Point>& contour) {
-        cv::Rect rect = cv::boundingRect(contour);
+    void hsv_detect(cv::Mat& frame_copy) {
+        cv::Mat frame_copy = frame.clone();
 
         std::map<std::string, std::pair<cv::Scalar, cv::Scalar>> hsv_colors = {
             {"blue", {cv::Scalar(90, 50, 50), cv::Scalar(130, 255, 255)}},
@@ -170,71 +155,60 @@ public:
             {"yellow", {cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255)}}
         };
 
-        cv::Mat hsv_img;
-        cv::cvtColor(roi_img, hsv_img, cv::COLOR_BGR2HSV);
-
-        for (const auto& [color_name, range] : hsv_colors) {
-            cv::Mat hsv_mask;
-            cv::inRange(hsv_img, range.first, range.second, hsv_mask);
-            cv::Mat hsv_result;
-            cv::bitwise_and(roi_img, roi_img, hsv_result, hsv_mask);
-
-            if (cv::countNonZero(hsv_mask) < 1000) {
-                continue;
-            }
-
-            cv::Mat hsv_gray;
-            cv::cvtColor(hsv_result, hsv_gray, cv::COLOR_BGR2GRAY);
-            cv::Mat hsv_edges;
-            cv::Canny(hsv_gray, hsv_edges, 100, 200);
-            cv::Mat hsv_thresh;
-            cv::threshold(hsv_gray, hsv_thresh, 100, 255, cv::THRESH_BINARY);
-
-            std::vector<std::vector<cv::Point>> hsv_contours;
-            cv::findContours(hsv_thresh, hsv_contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE);
-
-            std::vector<std::vector<cv::Point>> valid_contours;
-            for (const auto& cnt : hsv_contours) {
-                if (cv::contourArea(cnt) > 500) {
-                    valid_contours.push_back(cnt);
+        for (auto& [color_name, range] : hsv_colors) {
+            std::vector<std::vector<cv::Point>> contours; // 存储轮廓
+            cv::Mat threshold, edges; // 存储边缘
+            
+            cv_pipeline image_pipe;
+            image_pipe.do(cv::COLOR_BGR2HSV) // 图像管道
+                      .do(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
+                      .do(cv::COLOR_BGR2GRAY)
+                      .do(threshold, threshold, 150, 255, cv::THRESH_BINARY)
+                      .do(Canny, edges, 100, 200)
+                      .do(findContours, contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
+                      .process(&frame_copy);
+            
+            // 霍夫圆
+            std::vector<cv::Vec3f> circles;
+            // dp=1, minDist=50, param1=10, param2=33, minRadius=20, maxRadius=0
+            cv::HoughCircles(edges, circles, cv::HOUGH_GRADIENT, 1, 50, 10, 33, 20, 0);
+            if (!circles.empty()) {
+                for (const auto& circle : circles) {
+                    cv::Point center(cvRound(circle[0]), cvRound(circle[1]));
+                    int radius = cvRound(circle[2]);
+                    cv::circle(frame_copy, center, 2, cv::Scalar(0, 255, 0), 2);
+                    cv::circle(frame_copy, center, radius, cv::Scalar(0, 255, 0), 2);
+                    cv::putText(frame_copy, str(color_name)+"circle", cv::Point(center.x - 40, center.y - 40),
+                                cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 255), 1);
+                    node->msg.is_circle_detected = true;
+                    node->msg.center_x2_error = rect.y - 5 + center.y - frame_copy.rows / 2;
+                    node->msg.center_y2_error = rect.x - 5 + center.x - frame_copy.cols / 2;
                 }
             }
 
-            std::vector<std::vector<cv::Point>> possible_contours = filter_contours_by_centroid(valid_contours, 20);
-
-            for (const auto& cnt : possible_contours) {
-                if (color_name == "red1" || color_name == "red2") {
-                    std::vector<cv::Vec3f> circles;
-                    cv::HoughCircles(hsv_edges, circles, cv::HOUGH_GRADIENT, 1, 50, 10, 33, 20, 0);
-                    if (!circles.empty()) {
-                        for (const auto& circle : circles) {
-                            cv::Point center(cvRound(circle[0]), cvRound(circle[1]));
-                            int radius = cvRound(circle[2]);
-                            cv::putText(frame_copy, "1", cv::Point(rect.x - 5 + center.x - 40, rect.y - 5 + center.y - 40),
-                                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 255), 1);
-                            frame_copy = mark(cnt, frame_copy, rect.x, rect.y);
-                            node->msg.is_circle_detected = true;
-                            node->msg.center_x2_error = rect.y - 5 + center.y - frame_copy.rows / 2;
-                            node->msg.center_y2_error = rect.x - 5 + center.x - frame_copy.cols / 2;
-                        }
-                    }
-                }
-
+            // 多边形拟合
+            for(auto& cnt : contours) {
                 std::vector<cv::Point> approx;
                 cv::approxPolyDP(cnt, approx, 0.03 * cv::arcLength(cnt, true), true);
                 if (approx.size() == 4) {
                     cv::Moments M = cv::moments(cnt);
                     int center_x = static_cast<int>(M.m10 / M.m00);
                     int center_y = static_cast<int>(M.m01 / M.m00);
-                    if (color_name == "yellow") {
-                        cv::putText(frame_copy, "2", cv::Point(rect.x + center_x - 40, rect.y + center_y - 40),
-                                    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 255), 1);
-                        frame_copy = mark(cnt, frame_copy, rect.x, rect.y);
-                        node->msg.is_square_detected = true;
-                        node->msg.center_x1_error = rect.y - 5 + center_y - frame_copy.rows / 2;
-                        node->msg.center_y1_error = rect.x - 5 + center_x - frame_copy.cols / 2;
+                    cv::Rect rect = cv::boundingRect(cnt);
+                    cv::rectangle(frame_copy, cv::Point(rect.x - 5, rect.y - 5),
+                                cv::Point(rect.x + rect.width + 5, rect.y + rect.height + 5),
+                                cv::Scalar(0, 255, 0), 2);
+                    cv::circle(frame_copy, cv::Point(center_x, center_y), 2, cv::Scalar(255, 0, 255), 2);
+                    cv::putText(frame_copy, str(color_name)+"square", cv::Point(center_x - 40, center_y - 40),
+                                cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 255), 1);
+                    node->msg.is_square_detected = true;
+                    node->msg.center_x1_error = rect.y - 5 + center_y - frame_copy.rows / 2;
+                    node->msg.center_y1_error = rect.x - 5 + center_x - frame_copy.cols / 2;
                     }
                 }
+            }
+
+                
             }
         }
     }
