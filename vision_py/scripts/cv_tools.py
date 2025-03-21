@@ -162,8 +162,8 @@ class CVTools:
         x, y, w, h = cv2.boundingRect(contour)
 
         hsv_colors = {
-            #"blue": ([90, 50, 50], [130, 255, 255]),
-            #"green": ([40, 50, 50], [80, 255, 255]),
+            "blue": ([90, 50, 50], [130, 255, 255]),
+            "green": ([40, 50, 50], [80, 255, 255]),
             "red1": ([0, 100, 100], [10, 255, 255]),
             "red2": ([170, 100, 100], [180, 255, 255]),
             "yellow":([20, 100, 100], [40, 255, 255])
@@ -189,7 +189,6 @@ class CVTools:
                     # param2用于圆心的累加器阈值。小值更多的累加器投票，检测到更多的假阳性圆。
                     circle = cv2.HoughCircles(hsv_edges, cv2.HOUGH_GRADIENT, dp=1, minDist=50,
                                             param1=10, param2=33, minRadius=20, maxRadius=0)
-                    #circle = CVTools.filter_best_circle(circle)
                     if circle is not None:
                         circle = np.uint16(np.around(circle))
                         for i in circle[0, :]:

@@ -21,3 +21,9 @@ void threshold(cv::Mat& image, double thresh, double maxval, int type) {
 void Canny(cv::Mat& image, double threshold1, double threshold2) {
     cv::Canny(*image, *image, threshold1, threshold2);
 }
+
+// 显示视频帧
+void show(const cv::Mat& frame, const std::string& window_name = "frame") {
+    cv::namedWindow(window_name, cv::WINDOW_NORMAL);
+    cv::imshow(window_name, frame);
+}

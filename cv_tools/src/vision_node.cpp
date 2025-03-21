@@ -6,7 +6,6 @@
 #include <opencv2/opencv.hpp>
 
 #include "cv_tools.hpp"
-#include "cv_pipeline.hpp"
 
 class VisionPubNode : public rclcpp::Node {
     public:
