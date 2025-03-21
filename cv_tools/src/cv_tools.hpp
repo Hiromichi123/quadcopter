@@ -12,7 +12,7 @@ public:
 // 基础静态
 # pragma region base_static_functions
     // 初始化 VideoWriter
-    cv::VideoWriter init_video_writer(cv::VideoCapture& capture, std::string& output_filename = "output.mp4") {
+    static cv::VideoWriter init_video_writer(cv::VideoCapture& capture, std::string& output_filename = "output.mp4") {
         return cv::VideoWriter(output_filename, 
                             cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 
                             capture.get(cv::CAP_PROP_FPS), 
@@ -21,7 +21,7 @@ public:
     }
 
     // 保存视频帧
-    void save(const cv::Mat& frame, cv::VideoWriter& writer) {
+    static void save(const cv::Mat& frame, cv::VideoWriter& writer) {
         writer.write(frame);
     }
 
@@ -56,33 +56,10 @@ public:
         return result;
     }
 
-    // 质心法轮廓去重
-    static std::vector<std::vector<cv::Point>> filter_contours_by_centroid(const std::vector<std::vector<cv::Point>>& contours, double min_dist = 20) {
-        std::vector<cv::Point2f> contour_centers;
-        std::vector<std::vector<cv::Point>> filtered_contours;
-
-        for (const auto& cnt : contours) {
-            cv::Moments M = cv::moments(cnt);
-            if (M.m00 != 0) {
-                float cx = static_cast<float>(M.m10 / M.m00);
-                float cy = static_cast<float>(M.m01 / M.m00);
-
-                bool is_far = true;
-                for (const auto& center : contour_centers) {
-                    if (cv::norm(cv::Point2f(cx, cy) - center) < min_dist) {
-                        is_far = false;
-                        break;
-                    }
-                }
-
-                if (is_far) {
-                    contour_centers.emplace_back(cx, cy);
-                    filtered_contours.push_back(cnt);
-                }
-            }
-        }
-
-        return filtered_contours;
+    // 显示视频帧
+    void show(const cv::Mat& image, const std::string& window_name = "frame") {
+        cv::namedWindow(window_name, cv::WINDOW_NORMAL);
+        cv::imshow(window_name, image);
     }
 # pragma endregion
 
@@ -90,22 +67,16 @@ public:
 # pragma region task_functions
     // 红圆检测
     cv::Mat red_circle_detect(const cv::Mat& frame) {
+        std::vector<cv::Vec3f> circles; // 存储霍夫圆
         cv::Mat frame_copy = frame.clone();
-        cv::Mat hsv;
-        cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
-
-        cv::Scalar lower_red1(0, 70, 50);
-        cv::Scalar upper_red1(10, 255, 255);
-        cv::Scalar lower_red2(170, 70, 50);
-        cv::Scalar upper_red2(180, 255, 255);
-
-        cv::Mat mask1, mask2, mask;
-        cv::inRange(hsv, lower_red1, upper_red1, mask1);
-        cv::inRange(hsv, lower_red2, upper_red2, mask2);
-        cv::bitwise_or(mask1, mask2, mask);
-
-        std::vector<cv::Vec3f> circles;
-        cv::HoughCircles(mask, circles, cv::HOUGH_GRADIENT, 2, 50, 50, 40, 20, 0);
+        cvPipeline red_circle_pipe;
+        red_circle_pipe.do(GaussianBlur, 3)
+                       .do(cv::COLOR_BGR2HSV)
+                       .do(mask, cv::Scalar(0, 70, 50), cv::Scalar(10, 255, 255), 
+                                 cv::Scalar(170, 70, 50), cv::Scalar(180, 255, 255))
+                        //dp=2, minDist=50, param1=50, param2=40, minRadius=20, maxRadius=0
+                       .do(HoughCircles, circles, cv::HOUGH_GRADIENT, 2, 50, 50, 40, 20, 0)
+                       .process(&frame_copy);
 
         if (!circles.empty()) {
             for (const auto& circle : circles) {
@@ -127,38 +98,25 @@ public:
 
     // 黄方检测
     cv::Mat yellow_square_detect(const cv::Mat& frame) {
+        std::vector<std::vector<cv::Point>> contours; // 存储轮廓
         cv::Mat frame_copy = frame.clone();
-        cv::Mat hsv_img;
-        cv::cvtColor(frame, hsv_img, cv::COLOR_BGR2HSV);
 
-        cv::Scalar lower_yellow(15, 70, 70);
-        cv::Scalar upper_yellow(50, 255, 255);
+        cv_pipeline image_pipe;
+        image_pipe.do(cv::COLOR_BGR2HSV) // 图像管道
+                  .do(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
+                  .do(cv::COLOR_BGR2GRAY)
+                  .do(Canny, 100, 200)
+                  .do(threshold, 150, 255, cv::THRESH_BINARY)
+                  .do(findContours, contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
+                  .process(&frame_copy);
+        
+        cv_pipeline contours_pipe; // 轮廓管道
+        contours_pipe.do(filter_contours_by_area, 500)
+                     .do(filter_contours_by_aspect_ratio, 0.8, 1.25)
+                     .do(filter_contours_by_centroid, 20)
+                     .process(&contours)
 
-        cv::Mat mask;
-        cv::inRange(hsv_img, lower_yellow, upper_yellow, mask);
-        cv::Mat result;
-        cv::bitwise_and(frame_copy, frame_copy, result, mask);
-
-        cv::Mat gray;
-        cv::cvtColor(result, gray, cv::COLOR_BGR2GRAY);
-        cv::Mat edges;
-        cv::Canny(gray, edges, 100, 200);
-        cv::Mat thresh;
-        cv::threshold(gray, thresh, 150, 255, cv::THRESH_BINARY);
-
-        std::vector<std::vector<cv::Point>> contours;
-        cv::findContours(thresh, contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE);
-
-        std::vector<std::vector<cv::Point>> valid_contours;
-        for (const auto& cnt : contours) {
-            if (cv::contourArea(cnt) > 500) {
-                valid_contours.push_back(cnt);
-            }
-        }
-
-        std::vector<std::vector<cv::Point>> possible_contours = filter_contours_by_centroid(valid_contours, 20);
-
-        for (const auto& contour : possible_contours) {
+        for (const auto& contour : contours) {
             std::vector<cv::Point> approx;
             cv::approxPolyDP(contour, approx, 0.03 * cv::arcLength(contour, true), true);
             if (approx.size() == 4) {

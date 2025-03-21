@@ -34,19 +34,9 @@ class VisionPubNode : public rclcpp::Node {
     
         void process(cv::Mat frame) {
             try {
-                frame1 = frame.clone();
-                cvPipeline red_circle_pipe; // 红色圆形检测管道
-                red_circle_pipe.do(GaussianBlur, 5)
-                              .do(Canny, 100, 200)
-                              .process(&frame1);
-                // cv::imshow("red", frame1);
-                
-                frame2 = frame.clone();
-                cvPipeline yellow_square_pipe; // 黄色矩形检测管道
-                yellow_square_pipe.do(GaussianBlur, 5)
-                                 .do(Canny, 100, 200)
-                                 .process(&frame2);
-                // cv::imshow("yellow", frame2);
+                cv::Mat frame1, frame2, frame3;
+                frame1 = cv_tools->red_circle_detect(frame); // 红色圆检测
+                frame2 = cv_tools->yellow_square_detect(frame); // 黄色方检测
                 
     
                 frame3 = frame(cv::Range::all(), cv::Range(frame.cols / 6, frame.cols - frame.cols / 6));
@@ -55,7 +45,7 @@ class VisionPubNode : public rclcpp::Node {
                                .do(threshold, 100, 255, cv::THRESH_BINARY)
                                .process(&frame3);
                 // cv::imshow("line", frame3);
-                cv::Mat hl_copy = cv_tools->line_detect(frame3);  // 霍夫直线
+                cv::Mat hl_copy = cv_tools->line_detect(frame3); // 霍夫直线
                 // cv::imshow("霍夫直线效果", hl_copy);
                 // cv::waitKey(1);
                 
