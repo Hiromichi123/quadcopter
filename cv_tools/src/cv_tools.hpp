@@ -105,8 +105,8 @@ public:
         image_pipe.do(cv::COLOR_BGR2HSV) // 图像管道
                   .do(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
                   .do(cv::COLOR_BGR2GRAY)
-                  .do(Canny, 100, 200)
                   .do(threshold, 150, 255, cv::THRESH_BINARY)
+                  .do(Canny, 100, 200)
                   .do(findContours, contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
                   .process(&frame_copy);
         
@@ -117,8 +117,10 @@ public:
                      .process(&contours)
 
         for (const auto& contour : contours) {
-            std::vector<cv::Point> approx;
-            cv::approxPolyDP(contour, approx, 0.03 * cv::arcLength(contour, true), true);
+            std::vector<cv::Point> approx; // 存储近似多边形
+            cv_pipeline approx_pipe;
+            approx_pipe.do(approxPolyDP, approx, 0.03 * cv::arcLength(contour, true), true)
+                       .process(&contour);
             if (approx.size() == 4) {
                 cv::Moments M = cv::moments(contour);
                 int center_x = static_cast<int>(M.m10 / M.m00);
@@ -126,6 +128,7 @@ public:
                 cv::putText(frame_copy, "2", cv::Point(center_x - 40, center_y - 40),
                             cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 255), 1);
                 frame_copy = mark(contour, frame_copy, 0, 0);
+
                 node->msg.is_square_detected = true;
                 node->msg.center_x1_error = center_y - frame_copy.rows / 2;
                 node->msg.center_y1_error = center_x - frame_copy.cols / 2;
@@ -185,7 +188,7 @@ public:
             cv::Mat hsv_edges;
             cv::Canny(hsv_gray, hsv_edges, 100, 200);
             cv::Mat hsv_thresh;
-            cv::threshold(hsv_gray, hsv_thresh, 150, 255, cv::THRESH_BINARY);
+            cv::threshold(hsv_gray, hsv_thresh, 100, 255, cv::THRESH_BINARY);
 
             std::vector<std::vector<cv::Point>> hsv_contours;
             cv::findContours(hsv_thresh, hsv_contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE);
@@ -236,14 +239,18 @@ public:
         }
     }
 
-    // 霍夫直线，TODO：卡尔曼滤波
+    // 霍夫直线
     cv::Mat line_detect(const cv::Mat& frame) {
+        std::vector<cv::Vec4i> lines; // 存储直线
         cv::Mat frame_copy = frame.clone();
-        cv::Mat edges;
-        cv::Canny(frame, edges, 50, 200, 3);
-
-        std::vector<cv::Vec4i> lines;
-        cv::HoughLinesP(edges, lines, 1, CV_PI / 180, 50, 100, 50);
+        cv_pipeline image_pipe;
+        image_pipe.do(GaussianBlur, 3)
+                  .do(cvtColor, cv::COLOR_BGR2GRAY)
+                  .do(threshold, 100, 255, cv::THRESH_BINARY)
+                  .do(Canny, 50, 200, 3)
+                  //rho=1, theta=CV_PI/180, threshold=50, minLineLength=100, maxLineGap=50
+                  .do(HoughLinesP, lines, 1, CV_PI / 180, 50, 100, 50);
+                  .process(&frame_copy);
 
         if (lines.empty()) {
             node->msg.is_line_detected = false;

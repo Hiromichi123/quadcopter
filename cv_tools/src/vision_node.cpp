@@ -37,17 +37,8 @@ class VisionPubNode : public rclcpp::Node {
                 cv::Mat frame1, frame2, frame3;
                 frame1 = cv_tools->red_circle_detect(frame); // 红色圆检测
                 frame2 = cv_tools->yellow_square_detect(frame); // 黄色方检测
-                
-    
                 frame3 = frame(cv::Range::all(), cv::Range(frame.cols / 6, frame.cols - frame.cols / 6));
-                cvPipeline line_detect_pipe; // 直线检测管道
-                line_detect_pipe.do(cvtColor, cv::COLOR_BGR2GRAY)
-                               .do(threshold, 100, 255, cv::THRESH_BINARY)
-                               .process(&frame3);
-                // cv::imshow("line", frame3);
                 cv::Mat hl_copy = cv_tools->line_detect(frame3); // 霍夫直线
-                // cv::imshow("霍夫直线效果", hl_copy);
-                // cv::waitKey(1);
                 
                 vision_pub->publish(vision_msg);
                 // frame_pub->publish(*bridge->cv2_to_compressed_imgmsg(frame1)); // 发布压缩图像调试
