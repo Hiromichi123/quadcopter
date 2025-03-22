@@ -20,32 +20,23 @@ class VisionPubNode : public rclcpp::Node {
     
     private:
         void ground_callback(const sensor_msgs::msg::Image::SharedPtr msg) {
-            if (msg->data.empty()) { // 检查图像是否为空
-                RCLCPP_ERROR(this->get_logger(), "Empty image received");
-                return;
-            }
+            if (msg->data.empty()) { RCLCPP_ERROR(this->get_logger(), "Empty image received"); return; }// 检查图像是否为空
             try {
                 cv::Mat cv_image = bridge->imgmsg_to_cv2(msg, "bgr8");
                 process(cv_image);
             } catch (const cv_bridge::Exception& e) {
-                RCLCPP_ERROR(this->get_logger(), "Error convert image: %s", e.what());
+                RCLCPP_ERROR(this->get_logger(), "Error in processing: %s", e.what());
             }
         }
     
         void process(cv::Mat frame) {
-            try {
-                cv::Mat frame1, frame2, frame3;
-                frame1 = cv_tools->red_circle_detect(frame); // 红色圆检测
-                frame2 = cv_tools->yellow_square_detect(frame); // 黄色方检测
-                frame3 = frame(cv::Range::all(), cv::Range(frame.cols / 6, frame.cols - frame.cols / 6));
-                cv::Mat hl_copy = cv_tools->line_detect(frame3); // 霍夫直线
-                
-                vision_pub->publish(vision_msg);
-                // frame_pub->publish(*bridge->cv2_to_compressed_imgmsg(frame1)); // 发布压缩图像调试
-
-            } catch (const std::exception& e) {
-                RCLCPP_ERROR(this->get_logger(), "Error occurred: %s", e.what());
-            }
+            cv::Mat frame1, frame2, frame3;
+            frame1 = cv_tools->red_circle_detect(frame); // 红色圆检测
+            frame2 = cv_tools->yellow_square_detect(frame); // 黄色方检测
+            frame3 = cv_tools->line_detect(frame); // 霍夫直线检测            
+            
+            vision_pub->publish(vision_msg);
+            // frame_pub->publish(*bridge->cv2_to_compressed_imgmsg(frame1)); // 发布压缩图像调试
         }
     
         rclcpp::Publisher<vision::msg::Vision>::SharedPtr vision_pub;
