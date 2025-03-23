@@ -10,12 +10,8 @@
 
 class VisionNode : public rclcpp::Node {
 public:
-    VisionNode() : Node("vision_node");
+    VisionNode();
 
-    void fill_circle_msg(bool is_detected, int center_x_error, int center_y_error);
-    void fill_square_msg(bool is_detected, int center_x_error, int center_y_error);
-    void fill_line_msg(bool is_detected, int lateral_error, double angle_error);
-    
 private:
     void ground_callback(const sensor_msgs::msg::Image::SharedPtr msg);
     void process(cv::Mat frame);
@@ -24,6 +20,6 @@ private:
     // rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr frame_pub1;
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr frame_sub;
     std::shared_ptr<cv_bridge::CvImage> bridge;
-    std::shared_ptr<cv::functions::CVTools> cv_tools;
-    cv_tools::msg::VisionMsg vision_msg;
+    std::shared_ptr<cv_functions::CVTools> cv_tools;
+    std::make_shared<cv_tools::msg::VisionMsg> vision_msg;
 };

@@ -15,7 +15,6 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
-find_package(ros2_tools REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME} "msg/VisionMsg.msg")
 ament_export_dependencies(rosidl_default_runtime)
@@ -31,7 +30,7 @@ target_include_directories(vision_node PUBLIC
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 target_link_libraries(vision_node ${cpp_typesupport_target})
 
-ament_target_dependencies(vision_node rclcpp sensor_msgs OpenCV cv_bridge ros2_tools)
+ament_target_dependencies(vision_node rclcpp sensor_msgs OpenCV cv_bridge)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

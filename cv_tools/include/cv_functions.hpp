@@ -41,7 +41,7 @@ void mask(cv::Mat& image, const cv::Scalar& lower, const cv::Scalar& upper) {
 }
 
 // 双区间掩膜操作
-void mask(cv::Mat& image, cv::Scalar& lower1, cv::Scalar& upper1, cv::Scalar& lower2, cv::Scalar& upper2) {
+void double_mask(cv::Mat& image, const cv::Scalar& lower1, const cv::Scalar& upper1, const cv::Scalar& lower2, const cv::Scalar& upper2) {
     cv::Mat mask1, mask2;
     cv::inRange(image, lower1, upper1, mask1);
     cv::inRange(image, lower2, upper2, mask2);
@@ -129,7 +129,7 @@ static std::vector<std::vector<cv::Point>> filter_contours_by_aspect_ratio(const
 // 单轮廓处理函数
 #pragma region contour
 // 轮廓近似
-void approxPolyDP(const std::vector<cv::Point>& contour, std::vector<cv::Point>& approx, double epsilon, bool closed) {
+void approxPolyDP(const std::vector<cv::Point>& contour, const std::vector<cv::Point>& approx, double epsilon, bool closed) {
     cv::approxPolyDP(contour, approx, epsilon, closed);
 }
 #pragma endregion
@@ -151,7 +151,7 @@ void save(cv::Mat& frame, cv::VideoWriter& writer) {
 }
 
 // 显示视频帧
-void show(cv::Mat& image, std::string& window_name = "frame") {
+void show(cv::Mat& image, const std::string& window_name = "frame") {
     cv::namedWindow(window_name, cv::WINDOW_NORMAL);
     cv::imshow(window_name, image);
 }
@@ -169,7 +169,7 @@ cv::Mat ratio_cut(const cv::Mat& frame, float left_ratio=0, float right_ratio=0,
 // 绘制函数
 #pragma region draw
 // 标记轮廓+中心+文本+坐标（多边形等）
-cv::Mat mark_contour(cv::Mat& frame_copy, std::vector<cv::Point>& contour, std::string& text, int originX, int originY) {
+cv::Mat mark_contour(cv::Mat& frame_copy, const std::vector<cv::Point>& contour, const std::string& text, int originX, int originY) {
     cv::Rect rect = cv::boundingRect(contour);
     cv::rectangle(frame_copy, cv::Point(originX + rect.x - 5, originY + rect.y - 5),
                     cv::Point(originX + rect.x + rect.width + 5, originY + rect.y + rect.height + 5),
@@ -184,7 +184,7 @@ cv::Mat mark_contour(cv::Mat& frame_copy, std::vector<cv::Point>& contour, std::
 }
 
 // 标记圆+中心+文本+坐标（霍夫圆）
-cv::Mat mark_circle(cv::Mat& frame_copy, const cv::Vec3f& circle, std::string& text, int originX, int originY) {
+cv::Mat mark_circle(cv::Mat& frame_copy, const cv::Vec3f& circle, const std::string& text, int originX, int originY) {
     cv::Point center(cvRound(circle[0]), cvRound(circle[1]));
     int radius = cvRound(circle[2]);
     cv::circle(frame_copy, cv::Point(originX + center.x, originY + center.y), 2, cv::Scalar(0, 255, 0), 2); // 中心
@@ -195,7 +195,7 @@ cv::Mat mark_circle(cv::Mat& frame_copy, const cv::Vec3f& circle, std::string& t
 }
 
 // 标记直线+文本+坐标（霍夫直线）
-cv::Mat mark_line(cv::Mat& frame_copy, cv::Vec4i& line, std::string& text, int originX, int originY) {
+cv::Mat mark_line(cv::Mat& frame_copy, cv::Vec4i& line, const std::string& text, int originX, int originY) {
     cv::line(frame_copy, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 255, 0), 2); // 绘制直线
     cv::putText(frame_copy, text, cv::Point(originX + line[0], originY + line[1] - 10),
                 cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 255), 1);

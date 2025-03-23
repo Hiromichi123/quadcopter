@@ -5,26 +5,9 @@ VisionNode::VisionNode() : Node("vision_pub") {
     // frame_pub = this->create_publisher<sensor_msgs::msg::CompressedImage>("frame", 10); // 发布压缩图像调试
     frame_sub = this->create_subscription<sensor_msgs::msg::Image>("/camera/ground", 1, std::bind(&VisionNode::ground_callback, this, std::placeholders::_1));
     bridge = std::make_shared<cv_bridge::CvBridge>();
-    cv_tools = std::make_shared<CVTools>(this);  // 创建工具类实例
+    vision_msg = std::make_shared<cv_tools::msg::VisionMsg>(); // 创建消息实例
+    cv_tools = std::make_shared<CVTools>(vision_msg);  // 创建工具类实例
     RCLCPP_INFO(this->get_logger(), "Init complete");
-}
-
-void VisionNode::fill_circle_msg(bool is_detected, int center_x_error, int center_y_error) {
-    vision_msg.is_circle_detected = is_detected;
-    vision_msg.center_x2_error = center_x_error;
-    vision_msg.center_y2_error = center_y_error;
-}
-
-void VisionNode::fill_square_msg(bool is_detected, int center_x_error, int center_y_error) {
-    vision_msg.is_square_detected = is_detected;
-    vision_msg.center_x1_error = center_x_error;
-    vision_msg.center_y1_error = center_y_error;
-}
-
-void VisionNode::fill_line_msg(bool is_detected, int lateral_error, double angle_error) {
-    vision_msg.is_line_detected = is_detected;
-    vision_msg.lateral_error = lateral_error;
-    vision_msg.angle_error = angle_error;
 }
 
 void VisionNode::ground_callback(const sensor_msgs::msg::Image::SharedPtr msg) {

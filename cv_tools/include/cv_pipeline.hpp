@@ -1,30 +1,30 @@
 #ifndef CV_PIPELINE_HPP
 #define CV_PIPELINE_HPP
-#include <opencv2/opencv.hpp>
 #include <functional>
 #include <vector>
 #include "cv_functions.hpp"
 
 namespace cv_functions {
+template<typename T>
 class cvPipeline {
 public:
     template<typename Func, typename... Args>
     cvPipeline& did(Func func, Args... args) {
-        steps.push_back([func, args...](cv::Mat& img) { // Lambda 封装带参数的函数
-            func(img, args...);
+        steps.push_back([func, args...](T& data) { // Lambda 封装带参数的函数
+            func(data, args...);
         });
         return *this; // 支持链式
     }
 
-    // 处理图像
-    void process(cv::Mat& image) {
+    // 处理泛型
+    void process(T& data) {
         for (auto& step : steps) { // 迭代执行函数
-            step(image);
+            step(data);
         }
     }
 
 private:
-    std::vector<std::function<void(cv::Mat&)>> steps; // 函数容器
+    std::vector<std::function<void(T&)>> steps; // 函数容器
 };
 } // namespace cv_functions
 #endif
