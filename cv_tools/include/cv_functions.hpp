@@ -1,5 +1,8 @@
+#ifndef CV_FUNCTIONS_HPP
+#define CV_FUNCTIONS_HPP
 #include <opencv2/opencv.hpp>
 
+namespace cv_functions {
 // 图像处理函数
 #pragma region image
 // 均值滤波
@@ -15,8 +18,8 @@ void cvtColor(cv::Mat& image, int code) {
 
 // 二值化，返回threshold
 // type: cv::THRESH_BINARY, cv::THRESH_BINARY_INV, cv::THRESH_TRUNC, cv::THRESH_TOZERO, cv::THRESH_TOZERO_INV
-void threshold(cv::Mat& image, double threshold, double maxval, int type) {
-    cv::threshold(image, threshold, maxval, type);
+void threshold(cv::Mat& image, cv::Mat& threshold_image, double threshold, double maxval, int type) {
+    cv::threshold(image, threshold_image, threshold, maxval, type);
 }
 
 // Canny边缘检测，返回edges
@@ -60,13 +63,13 @@ void HoughLinesP(cv::Mat& image, std::vector<cv::Vec4i>& lines, double rho, doub
 cv::Mat backlight_compensation(const cv::Mat& frame) {
     cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(2.0, cv::Size(8, 8));
     cv::Mat lab;
-    cv::cvtColor(frame, lab, cv::COLOR_BGR2LAB);
+    cv::cvtColor(frame, lab, cv::COLOR_BGR2Lab);
     std::vector<cv::Mat> lab_channels;
     cv::split(lab, lab_channels);
     clahe->apply(lab_channels[0], lab_channels[0]);
     cv::merge(lab_channels, lab);
     cv::Mat result;
-    cv::cvtColor(lab, result, cv::COLOR_LAB2BGR);
+    cv::cvtColor(lab, result, cv::COLOR_Lab2BGR);
     return result;
 }
 #pragma endregion
@@ -134,12 +137,12 @@ void approxPolyDP(const std::vector<cv::Point>& contour, std::vector<cv::Point>&
 // 基础函数
 #pragma region base
 // 初始化VideoWriter
-cv::VideoWriter init_video_writer(cv::VideoCapture& capture, std::string& output_filename = "output.mp4") {
+cv::VideoWriter init_video_writer(cv::VideoCapture& capture, const std::string& output_filename = "output.mp4") {
     return cv::VideoWriter(output_filename, 
                         cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 
                         capture.get(cv::CAP_PROP_FPS), 
                         cv::Size(static_cast<int>(capture.get(cv::CAP_PROP_FRAME_WIDTH)),
-                                static_cast<int>(capture.get(cv::CAP_PROP_FRAME_HEIGHT)),));
+                                static_cast<int>(capture.get(cv::CAP_PROP_FRAME_HEIGHT))));
 }
 
 // 保存视频帧
@@ -181,7 +184,7 @@ cv::Mat mark_contour(cv::Mat& frame_copy, std::vector<cv::Point>& contour, std::
 }
 
 // 标记圆+中心+文本+坐标（霍夫圆）
-cv::Mat mark_circle(cv::Mat& frame_copy, cv::Vec3f& circle, std::string& text, int originX, int originY) {
+cv::Mat mark_circle(cv::Mat& frame_copy, const cv::Vec3f& circle, std::string& text, int originX, int originY) {
     cv::Point center(cvRound(circle[0]), cvRound(circle[1]));
     int radius = cvRound(circle[2]);
     cv::circle(frame_copy, cv::Point(originX + center.x, originY + center.y), 2, cv::Scalar(0, 255, 0), 2); // 中心
@@ -199,3 +202,5 @@ cv::Mat mark_line(cv::Mat& frame_copy, cv::Vec4i& line, std::string& text, int o
     return frame_copy;
 }
 #pragma endregion
+} // namespace cv_functions
+#endif

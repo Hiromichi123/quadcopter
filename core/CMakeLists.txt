@@ -22,7 +22,7 @@ find_package(nav_msgs REQUIRED)
 find_package(mavros_msgs REQUIRED)
 # 自定义工具/消息包
 find_package(ros2_tools REQUIRED)
-find_package(vision REQUIRED)
+find_package(vision_py REQUIRED)
 
 # 消息包声明，向外部暴露接口
 #rosidl_generate_interfaces(${PROJECT_NAME} "msg/BallPosition.msg" "msg/Calibrate.msg" "msg/BallDepth.msg" "srv/PickRelease.srv")
@@ -43,7 +43,7 @@ target_include_directories(quad_node PUBLIC
 #target_link_libraries(quad_node ${cpp_typesupport_target})
 
 # 可执行文件编译依赖
-ament_target_dependencies(quad_node rclcpp geometry_msgs nav_msgs std_msgs mavros_msgs ros2_tools vision)
+ament_target_dependencies(quad_node rclcpp geometry_msgs nav_msgs std_msgs mavros_msgs ros2_tools vision_py)
 set(CMAKE_INSTALL_RPATH /usr/local/lib)
 
 # 可执行文件安装

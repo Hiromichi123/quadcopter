@@ -1,40 +1,40 @@
+#ifndef CV_TOOLS_HPP
+#define CV_TOOLS_HPP
 #include <opencv2/opencv.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <vector>
 #include <cmath>
-
+#include <cv_tools/msg/vision_msg.hpp>
 #include "cv_pipeline.hpp"
 #include "cv_functions.hpp"
+#include "vision_node.h"
 
+class VisionNode;
+namespace cv_functions{
 class CVTools {
 public:
-    explicit CVTools(rclcpp::Node::SharedPtr node) : node(node) {}
+    explicit CVTools(VisionNode* node) : node(node) {}
 
     // 红圆检测
     cv::Mat red_circle_detect(const cv::Mat& frame) {
         std::vector<cv::Vec3f> circles; // 存储霍夫圆
         cv::Mat frame_copy = frame.clone();
-        cvPipeline red_circle_pipe;
-        red_circle_pipe.do(GaussianBlur, 3)
-                       .do(cv::COLOR_BGR2HSV)
-                       .do(mask, cv::Scalar(0, 70, 50), cv::Scalar(10, 255, 255), 
+        cv_functions::cvPipeline red_circle_pipe;
+        red_circle_pipe.did(GaussianBlur, 3)
+                       .did(cv::COLOR_BGR2HSV)
+                       .did(mask, cv::Scalar(0, 70, 50), cv::Scalar(10, 255, 255), 
                                  cv::Scalar(170, 70, 50), cv::Scalar(180, 255, 255))
                         //dp=2, minDist=50, param1=50, param2=40, minRadius=20, maxRadius=0
-                       .do(HoughCircles, circles, cv::HOUGH_GRADIENT, 2, 50, 50, 40, 20, 0)
+                       .did(HoughCircles, circles, cv::HOUGH_GRADIENT, 2, 50, 50, 40, 20, 0)
                        .process(&frame_copy);
 
         for (const auto& circle : circles) {
-            frame_copy = mark_circle(frame_copy, circle, "red circle", 0, 0);
+            cv_functions::mark_circle(frame_copy, circle, "red circle", 0, 0);
             //填充ros消息
-            node->msg.is_circle_detected = true;
-            node->msg.center_x2_error = center.y - frame_copy.rows / 2;
-            node->msg.center_y2_error = center.x - frame_copy.cols / 2;
+            node->fill_circle_msg(true, circle[1] - frame_copy.rows/2, circle[0] - frame_copy.cols/2);
             return frame_copy;
         }
-
-        node->msg.is_circle_detected = false;
-        node->msg.center_x2_error = 0;
-        node->msg.center_y2_error = 0;
+        node->fill_circle_msg(false, 0, 0);
         return frame_copy;
     }
 
@@ -44,43 +44,39 @@ public:
         cv::Mat threshold, edges;
         cv::Mat frame_copy = frame.clone();
 
-        cv_pipeline image_pipe;
-        image_pipe.do(cv::COLOR_BGR2HSV) // 图像管道
-                  .do(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
-                  .do(cv::COLOR_BGR2GRAY)
-                  .do(threshold, threshold, 150, 255, cv::THRESH_BINARY)
-                  .do(Canny, edges, 100, 200)
-                  .do(findContours, contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
+        cv_functions cvPipeline image_pipe;
+        image_pipe.did(cv::COLOR_BGR2HSV) // 图像管道
+                  .did(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
+                  .did(cv::COLOR_BGR2GRAY)
+                  .did(threshold, threshold, 150, 255, cv::THRESH_BINARY)
+                  .did(Canny, edges, 100, 200)
+                  .did(findContours, contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
                   .process(&frame_copy);
         
-        cv_pipeline contours_pipe; // 轮廓管道
-        contours_pipe.do(filter_contours_by_area, 500)
-                     .do(filter_contours_by_aspect_ratio, 0.8, 1.25)
-                     .do(filter_contours_by_centroid, 20)
+        cv_functions::cvPipeline contours_pipe; // 轮廓管道
+        contours_pipe.did(filter_contours_by_area, 500)
+                     .did(filter_contours_by_aspect_ratio, 0.8, 1.25)
+                     .did(filter_contours_by_centroid, 20)
                      .process(&contours)
 
         for (const auto& contour : contours) {
             std::vector<cv::Point> approx; // 存储近似多边形
             cv_pipeline approx_pipe;
-            approx_pipe.do(approxPolyDP, approx, 0.03 * cv::arcLength(contour, true), true)
+            approx_pipe.did(approxPolyDP, approx, 0.03 * cv::arcLength(contour, true), true)
                        .process(&contour);
             if (approx.size() == 4) {
-                frame_copy = mark_contour(frame_copy, contour, "yellow square", 0, 0);
+                mark_contour(frame_copy, contour, "yellow square", 0, 0);
                 // 填充ros消息
-                node->msg.is_square_detected = true;
-                node->msg.center_x1_error = center_y - frame_copy.rows / 2;
-                node->msg.center_y1_error = center_x - frame_copy.cols / 2;
+                node->fill_square_msg(true, center_y - frame_copy.rows/2, center_x - frame_copy.cols/2)
                 return frame_copy;
             }
         }
-        node->msg.is_square_detected = false;
-        node->msg.center_x1_error = 0;
-        node->msg.center_y1_error = 0;
+        node->fill_square_msg(false, 0, 0);
         return frame_copy;
     }
 
     // hsv空间的霍夫检测
-    cv::Mat hsv_detect(cv::Mat& frame_copy) {
+    cv::Mat hsv_detect(cv::Mat& frame) {
         cv::Mat frame_copy = frame.clone();
 
         std::map<std::string, std::pair<cv::Scalar, cv::Scalar>> hsv_colors = {
@@ -95,25 +91,23 @@ public:
             std::vector<std::vector<cv::Point>> contours; // 存储轮廓
             cv::Mat threshold, edges; // 存储边缘
             
-            cv_pipeline image_pipe;
-            image_pipe.do(cv::COLOR_BGR2HSV) // 图像管道
-                      .do(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
-                      .do(cv::COLOR_BGR2GRAY)
-                      .do(threshold, threshold, 150, 255, cv::THRESH_BINARY)
-                      .do(Canny, edges, 100, 200)
-                      .do(findContours, contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
-                      .process(&frame_copy);
+            cvPipeline image_pipe;
+            image_pipe.did(cv::COLOR_BGR2HSV) // 图像管道
+                      .did(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
+                      .did(cv::COLOR_BGR2GRAY)
+                      .did(threshold, threshold, 150, 255, cv::THRESH_BINARY)
+                      .did(Canny, edges, 100, 200)
+                      .did(findContours, contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
+                      .process(&frame);
             
             // 霍夫圆
             std::vector<cv::Vec3f> circles;
             // dp=1, minDist=50, param1=10, param2=33, minRadius=20, maxRadius=0
             cv::HoughCircles(edges, circles, cv::HOUGH_GRADIENT, 1, 50, 10, 33, 20, 0);
             for (const auto& circle : circles) {
-                frame_copy = mark_circle(frame_copy, circle, color_name + " circle", 0, 0);
+                cv_functions::mark_circle(frame_copy, circle, color_name + " circle", 0, 0);
                 // 填充ros消息
-                node->msg.is_circle_detected = true;
-                node->msg.center_x2_error = rect.y - 5 + center.y - frame_copy.rows / 2;
-                node->msg.center_y2_error = rect.x - 5 + center.x - frame_copy.cols / 2;
+                node->fill_circle_msg(true, center.y - frame_copy.rows/2, center.x - frame_copy.cols/2)
                 break;
             }
 
@@ -122,42 +116,35 @@ public:
                 std::vector<cv::Point> approx;
                 cv::approxPolyDP(cnt, approx, 0.03 * cv::arcLength(cnt, true), true);
                 if (approx.size() == 4) {
-                    frame_copy = mark_contour(frame_copy, cnt, str(color_name)+"square", 0, 0);
+                    cv::functions::mark_contour(frame_copy, cnt, str(color_name)+"square", 0, 0);
                     // 填充ros消息
-                    node->msg.is_square_detected = true;
-                    node->msg.center_x1_error = rect.y - 5 + center_y - frame_copy.rows / 2;
-                    node->msg.center_y1_error = rect.x - 5 + center_x - frame_copy.cols / 2;
+                    node->fill_square_msg(true, center.y - frame_copy.rows/2, center.x - frame_copy.cols/2)
                     break;
                 }
             }   
         }
-        node->msg.is_circle_detected = false;
-        node->msg.center_x2_error = 0;
-        node->msg.center_y2_error = 0;
-        node->msg.is_square_detected = false;
-        node->msg.center_x1_error = 0;
-        node->msg.center_y1_error = 0;
+        node->fill_circle_msg(false, 0, 0)
+        node->fill_square_msg(false, 0, 0)
         return frame_copy;
     }
 
     // 霍夫直线检测
     cv::Mat line_detect(const cv::Mat& frame) {
         std::vector<cv::Vec4i> lines; // 存储直线
+        cv::Mat threshold;
         cv::Mat frame_copy = frame.clone();
-        cv_pipeline image_pipe;
-        image_pipe.do(ratio_cut, 1/6, 1/6) // 左右各切割1/6
-                  .do(GaussianBlur, 3)
-                  .do(cvtColor, cv::COLOR_BGR2GRAY)
-                  .do(threshold, 100, 255, cv::THRESH_BINARY)
-                  .do(Canny, 50, 200, 3)
+        cvPipeline image_pipe;
+        image_pipe.did(ratio_cut, 1/6, 1/6) // 左右各切割1/6
+                  .did(GaussianBlur, 3)
+                  .did(cvtColor, cv::COLOR_BGR2GRAY)
+                  .did(threshold, threshold, 100, 255, cv::THRESH_BINARY)
+                  .did(Canny, 50, 200, 3)
                   //rho=1, theta=CV_PI/180, threshold=50, minLineLength=100, maxLineGap=50
-                  .do(HoughLinesP, lines, 1, CV_PI / 180, 50, 100, 50);
+                  .did(HoughLinesP, lines, 1, CV_PI / 180, 50, 100, 50)
                   .process(&frame_copy);
         
         if (lines.empty()) {
-            node->msg.is_line_detected = false;
-            node->msg.lateral_error = 0;
-            node->msg.angle_error = 0.0;
+            node->fill_line_msg(false, 0, 0)
             return frame_copy;
         }
 
@@ -189,13 +176,12 @@ public:
         } else {
             angle_error = std::tanh(angle_error) * 0.3;
         }
-
-        node->msg.is_line_detected = true;
-        node->msg.lateral_error = lateral_error;
-        node->msg.angle_error = angle_error;
+        
+        node->fill_line_msg(true, lateral_error, angle_error);
         return frame_copy;
     }
 
 private:
     rclcpp::Node::SharedPtr node;
-};
+};}
+#endif

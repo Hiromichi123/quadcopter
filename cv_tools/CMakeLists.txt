@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra -Wpedantic -Wno-unknown-pragmas -Wno-unused-function) # 忽视region、未使用function的警告
 endif()
 
 find_package(ament_cmake REQUIRED)
@@ -17,10 +17,16 @@ find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(ros2_tools REQUIRED)
 
-rosidl_generate_interfaces(${PROJECT_NAME} "msg/Vision.msg")
+rosidl_generate_interfaces(${PROJECT_NAME} "msg/VisionMsg.msg")
 ament_export_dependencies(rosidl_default_runtime)
 
 add_executable(vision_node src/vision_node.cpp)
+
+target_include_directories(vision_node PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
 
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 target_link_libraries(vision_node ${cpp_typesupport_target})
@@ -36,5 +42,6 @@ endif()
 
 install(TARGETS vision_node DESTINATION lib/${PROJECT_NAME})
 install(DIRECTORY msg DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY include/ DESTINATION include)
 
 ament_package()

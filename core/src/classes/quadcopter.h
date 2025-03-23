@@ -15,7 +15,7 @@
 #include <mavros_msgs/msg/state.hpp>
 
 #include "ros2_tools/msg/lidar_pose.hpp"
-#include "vision/msg/vision.hpp"
+#include "vision_py/msg/vision.hpp"
 
 class flight_controller;
 
@@ -43,7 +43,7 @@ private:
 
     rclcpp::Subscription<mavros_msgs::msg::State>::SharedPtr state_sub;
     rclcpp::Subscription<ros2_tools::msg::LidarPose>::SharedPtr lidar_sub;
-    rclcpp::Subscription<vision::msg::Vision>::SharedPtr vision_sub;
+    rclcpp::Subscription<vision_py::msg::Vision>::SharedPtr vision_sub;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pos_pub;
     rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr vel_pub;
 
@@ -63,7 +63,7 @@ private:
     void state_cb(const mavros_msgs::msg::State::SharedPtr msg);
 
     // vision数据回调
-    std::shared_ptr<vision::msg::Vision> vision_msg;
-    void vision_sub_cb(const vision::msg::Vision::SharedPtr msg);
+    std::shared_ptr<vision_py::msg::Vision> vision_msg;
+    void vision_sub_cb(const vision_py::msg::Vision::SharedPtr msg);
 };
 #endif

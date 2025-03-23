@@ -8,8 +8,8 @@ quadcopter::quadcopter() : Node("quad_node") {
     lidar_sub = this->create_subscription<ros2_tools::msg::LidarPose>("lidar_data", 10, std::bind(&quadcopter::lidar_pose_cb, this, std::placeholders::_1));
     current_state = std::make_shared<mavros_msgs::msg::State>();
     state_sub = this->create_subscription<mavros_msgs::msg::State>("/mavros/state", 10, std::bind(&quadcopter::state_cb, this, std::placeholders::_1));
-    vision_msg = std::make_shared<vision::msg::Vision>();
-    vision_sub = this->create_subscription<vision::msg::Vision>("vision", 10, std::bind(&quadcopter::vision_sub_cb, this, std::placeholders::_1));
+    vision_msg = std::make_shared<vision_py::msg::Vision>();
+    vision_sub = this->create_subscription<vision_py::msg::Vision>("vision", 10, std::bind(&quadcopter::vision_sub_cb, this, std::placeholders::_1));
 
     pos_pub = this->create_publisher<geometry_msgs::msg::PoseStamped>("/mavros/setpoint_position/local", 10);
     vel_pub = this->create_publisher<geometry_msgs::msg::TwistStamped>("/mavros/setpoint_velocity/cmd_vel", 10);
@@ -229,7 +229,7 @@ void quadcopter::state_cb(const mavros_msgs::msg::State::SharedPtr msg) {
 }
 
 // vision数据回调
-void quadcopter::vision_sub_cb(const vision::msg::Vision::SharedPtr msg) {
+void quadcopter::vision_sub_cb(const vision_py::msg::Vision::SharedPtr msg) {
     vision_msg = msg;
 }
 
