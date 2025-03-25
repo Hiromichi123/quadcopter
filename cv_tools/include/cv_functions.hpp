@@ -50,12 +50,12 @@ void double_mask(cv::Mat& image, const cv::Scalar& lower1, const cv::Scalar& upp
 }
 
 // 霍夫圆检测
-void HoughCircles(cv::Mat& image, std::vector<cv::Vec3f>& circles, int method, double dp, double minDist, double param1, double param2, int minRadius, int maxRadius) {
+void HoughCircles(cv::Mat& image, std::vector<cv::Vec3f>& circles, const int method, const double dp, const double minDist, const double param1, double param2, int minRadius, int maxRadius) {
     cv::HoughCircles(image, circles, method, dp, minDist, param1, param2, minRadius, maxRadius);
 }
 
 // 霍夫直线检测
-void HoughLinesP(cv::Mat& image, std::vector<cv::Vec4i>& lines, double rho, double theta, int threshold, double minLineLength, double maxLineGap) {
+void HoughLinesP(cv::Mat& image, std::vector<cv::Vec4i>& lines, const double rho, const double theta, const int threshold, const double minLineLength, double maxLineGap) {
     cv::HoughLinesP(image, lines, rho, theta, threshold, minLineLength, maxLineGap);
 }
 
@@ -157,7 +157,7 @@ void show(cv::Mat& image, const std::string& window_name = "frame") {
 }
 
 // 按比例切割图像边缘
-cv::Mat ratio_cut(const cv::Mat& frame, float left_ratio=0, float right_ratio=0, float top_ratio=0, float bottom_ratio=0) {
+cv::Mat ratio_cut(cv::Mat& frame, const float left_ratio=0, const float right_ratio=0, const float top_ratio=0, const float bottom_ratio=0) {
     int left = frame.cols * left_ratio;
     int right = frame.cols - frame.cols * right_ratio;
     int top = frame.rows * top_ratio;

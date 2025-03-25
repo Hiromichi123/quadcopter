@@ -19,7 +19,6 @@ private:
     rclcpp::Publisher<cv_tools::msg::VisionMsg>::SharedPtr vision_pub;
     // rclcpp::Publisher<sensor_msgs::msg::CompressedImage>::SharedPtr frame_pub1;
     rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr frame_sub;
-    std::shared_ptr<cv_bridge::CvImage> bridge;
     std::shared_ptr<cv_functions::CVTools> cv_tools;
-    std::make_shared<cv_tools::msg::VisionMsg> vision_msg;
+    std::shared_ptr<cv_tools::msg::VisionMsg> vision_msg;
 };

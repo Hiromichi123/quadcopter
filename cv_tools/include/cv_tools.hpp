@@ -19,11 +19,11 @@ public:
         cv::Mat frame_copy = frame.clone();
         cv_functions::cvPipeline<cv::Mat> red_circle_pipe;
         red_circle_pipe.did(GaussianBlur, 3)
-                       .did(cv::COLOR_BGR2HSV)
+                       .did(cvtColor, cv::COLOR_BGR2HSV)
                        .did(double_mask, cv::Scalar(0, 70, 50), cv::Scalar(10, 255, 255), 
                                          cv::Scalar(170, 70, 50), cv::Scalar(180, 255, 255))
                         //dp=2, minDist=50, param1=50, param2=40, minRadius=20, maxRadius=0
-                       .did(HoughCircles, circles, cv::HOUGH_GRADIENT, 2, 50, 50, 40, 20, 0)
+                       .did(HoughCircles, std::ref(circles), cv::HOUGH_GRADIENT, 2, 50, 50, 40, 20, 0)
                        .process(frame_copy);
 
         for (const auto& circle : circles) {
@@ -39,16 +39,16 @@ public:
     // 黄方检测
     cv::Mat yellow_square_detect(const cv::Mat& frame) {
         std::vector<std::vector<cv::Point>> contours; // 存储轮廓
-        cv::Mat threshold, edges;
+        cv::Mat thresh, edges;
         cv::Mat frame_copy = frame.clone();
 
         cv_functions::cvPipeline<cv::Mat> image_pipe;
-        image_pipe.did(cv::COLOR_BGR2HSV) // 图像管道
+        image_pipe.did(cvtColor, cv::COLOR_BGR2HSV) // 图像管道
                   .did(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
-                  .did(cv::COLOR_BGR2GRAY)
-                  .did(threshold, threshold, 150, 255, cv::THRESH_BINARY)
-                  .did(Canny, edges, 100, 200)
-                  .did(findContours, contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
+                  .did(cvtColor, cv::COLOR_BGR2GRAY)
+                  .did(threshold, std::ref(thresh), 150, 255, cv::THRESH_BINARY)
+                  .did(Canny, std::ref(edges), 100, 200)
+                  .did(findContours, std::ref(contours), cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
                   .process(frame_copy);
         
         cv_functions::cvPipeline<std::vector<std::vector<cv::Point>>> contours_pipe; // 轮廓管道
@@ -57,7 +57,7 @@ public:
                      .did(filter_contours_by_centroid, 20)
                      .process(contours);
 
-        for (const auto& contour : contours) {
+        for (auto& contour : contours) {
             std::vector<cv::Point> approx; // 存储近似多边形
             cv_functions::cvPipeline<std::vector<cv::Point>> approx_pipe;
             approx_pipe.did(approxPolyDP, approx, 0.03 * cv::arcLength(contour, true), true)
@@ -89,15 +89,15 @@ public:
 
         for (auto& [color_name, range] : hsv_colors) {
             std::vector<std::vector<cv::Point>> contours; // 存储轮廓
-            cv::Mat threshold, edges; // 存储边缘
+            cv::Mat thresh, edges; // 存储边缘
             
             cv_functions::cvPipeline<cv::Mat> image_pipe;
-            image_pipe.did(cv::COLOR_BGR2HSV) // 图像管道
+            image_pipe.did(cvtColor, cv::COLOR_BGR2HSV) // 图像管道
                       .did(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
-                      .did(cv::COLOR_BGR2GRAY)
-                      .did(threshold, threshold, 150, 255, cv::THRESH_BINARY)
-                      .did(Canny, edges, 100, 200)
-                      .did(findContours, contours, cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
+                      .did(cvtColor, cv::COLOR_BGR2GRAY)
+                      .did(threshold, std::ref(thresh), 150, 255, cv::THRESH_BINARY)
+                      .did(Canny, std::ref(edges), 100, 200)
+                      .did(findContours, std::ref(contours), cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
                       .process(frame);
             
             // 霍夫圆
@@ -122,7 +122,7 @@ public:
                 std::vector<cv::Point> approx;
                 cv::approxPolyDP(cnt, approx, 0.03 * cv::arcLength(cnt, true), true);
                 if (approx.size() == 4) {
-                    cv_functions::mark_contour(frame_copy, cnt, str(color_name)+"square", 0, 0);
+                    cv_functions::mark_contour(frame_copy, cnt, color_name+"square", 0, 0);
                     // 填充ros消息
                     cv::Moments m = cv::moments(cnt);
                     fill_square_msg(true, static_cast<int>(m.m01 / m.m00) - frame_copy.rows / 2,
@@ -139,16 +139,16 @@ public:
     // 霍夫直线检测
     cv::Mat line_detect(const cv::Mat& frame) {
         std::vector<cv::Vec4i> lines; // 存储直线
-        cv::Mat threshold;
+        cv::Mat thresh, edges;
         cv::Mat frame_copy = frame.clone();
         cv_functions::cvPipeline<cv::Mat> image_pipe;
-        image_pipe.did(ratio_cut, 1/6, 1/6) // 左右各切割1/6
+        image_pipe.did(ratio_cut, 1/6, 1/6, 0, 0) // 左右各切割1/6
                   .did(GaussianBlur, 3)
                   .did(cvtColor, cv::COLOR_BGR2GRAY)
-                  .did(threshold, threshold, 100, 255, cv::THRESH_BINARY)
-                  .did(Canny, 50, 200, 3)
+                  .did(threshold, std::ref(thresh), 100, 255, cv::THRESH_BINARY)
+                  .did(Canny, std::ref(edges), 50, 200)
                   //rho=1, theta=CV_PI/180, threshold=50, minLineLength=100, maxLineGap=50
-                  .did(HoughLinesP, lines, 1, CV_PI / 180, 50, 100, 50)
+                  .did(HoughLinesP, std::ref(lines), 1, CV_PI / 180, 50, 100, 50)
                   .process(frame_copy);
         
         if (lines.empty()) {
