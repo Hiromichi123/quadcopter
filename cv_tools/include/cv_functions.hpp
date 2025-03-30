@@ -1,6 +1,8 @@
 #ifndef CV_FUNCTIONS_HPP
 #define CV_FUNCTIONS_HPP
 #include <opencv2/opencv.hpp>
+#include <optional>
+#include <vector>
 
 namespace cv_functions {
 // 图像处理函数
@@ -49,18 +51,8 @@ void double_mask(cv::Mat& image, const cv::Scalar& lower1, const cv::Scalar& upp
     cv::bitwise_and(image, image, image, mask1); // 与操作
 }
 
-// 霍夫圆检测
-void HoughCircles(cv::Mat& image, std::vector<cv::Vec3f>& circles, const int method, const double dp, const double minDist, const double param1, double param2, int minRadius, int maxRadius) {
-    cv::HoughCircles(image, circles, method, dp, minDist, param1, param2, minRadius, maxRadius);
-}
-
-// 霍夫直线检测
-void HoughLinesP(cv::Mat& image, std::vector<cv::Vec4i>& lines, const double rho, const double theta, const int threshold, const double minLineLength, double maxLineGap) {
-    cv::HoughLinesP(image, lines, rho, theta, threshold, minLineLength, maxLineGap);
-}
-
 // 逆光补偿（不好用）
-cv::Mat backlight_compensation(const cv::Mat& frame) {
+void backlight_compensation(cv::Mat& frame) {
     cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(2.0, cv::Size(8, 8));
     cv::Mat lab;
     cv::cvtColor(frame, lab, cv::COLOR_BGR2Lab);
@@ -68,9 +60,30 @@ cv::Mat backlight_compensation(const cv::Mat& frame) {
     cv::split(lab, lab_channels);
     clahe->apply(lab_channels[0], lab_channels[0]);
     cv::merge(lab_channels, lab);
-    cv::Mat result;
-    cv::cvtColor(lab, result, cv::COLOR_Lab2BGR);
-    return result;
+    cv::cvtColor(lab, frame, cv::COLOR_Lab2BGR);
+}
+#pragma endregion
+
+// 霍夫处理
+#pragma region hough
+// 霍夫圆检测
+void HoughCircles(cv::Mat& image, std::vector<cv::Vec3f>& circles, const int method, const double dp, const double minDist, const double param1, double param2, int minRadius, int maxRadius) {
+    cv::HoughCircles(image, circles, method, dp, minDist, param1, param2, minRadius, maxRadius);
+}
+
+// 筛选最可靠圆
+
+// 霍夫直线检测
+void HoughLinesP(cv::Mat& image, std::vector<cv::Vec4i>& lines, const double rho, const double theta, const int threshold, const double minLineLength, double maxLineGap) {
+    cv::HoughLinesP(image, lines, rho, theta, threshold, minLineLength, maxLineGap);
+}
+
+// 筛选最长直线
+std::optional<cv::Vec4i> getLongestLine(const std::vector<cv::Vec4i>& lines) {
+    if (lines.empty()) { return std::nullopt; }
+    return *std::max_element(lines.begin(), lines.end(), [](const cv::Vec4i& a, const cv::Vec4i& b) {
+        return cv::norm(cv::Point(a[0], a[1]) - cv::Point(a[2], a[3])) <
+               cv::norm(cv::Point(b[0], b[1]) - cv::Point(b[2], b[3]));});
 }
 #pragma endregion
 
@@ -169,7 +182,7 @@ cv::Mat ratio_cut(cv::Mat& frame, const float left_ratio=0, const float right_ra
 // 绘制函数
 #pragma region draw
 // 标记轮廓+中心+文本+坐标（多边形等）
-cv::Mat mark_contour(cv::Mat& frame_copy, const std::vector<cv::Point>& contour, const std::string& text, int originX, int originY) {
+void mark_contour(cv::Mat& frame_copy, const std::vector<cv::Point>& contour, const std::string& text, int originX, int originY) {
     cv::Rect rect = cv::boundingRect(contour);
     cv::rectangle(frame_copy, cv::Point(originX + rect.x - 5, originY + rect.y - 5),
                     cv::Point(originX + rect.x + rect.width + 5, originY + rect.y + rect.height + 5),
@@ -180,26 +193,23 @@ cv::Mat mark_contour(cv::Mat& frame_copy, const std::vector<cv::Point>& contour,
     cv::circle(frame_copy, cv::Point(originX + center_x, originY + center_y), 1, cv::Scalar(255, 0, 255), 2); // 中心
     cv::putText(frame_copy, text + "[" + std::to_string(originX + center_x) + "," + std::to_string(originY + center_y) + "]",
                 cv::Point(originX + center_x, originY + center_y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 255), 1); // 文本+坐标
-    return frame_copy;
 }
 
 // 标记圆+中心+文本+坐标（霍夫圆）
-cv::Mat mark_circle(cv::Mat& frame_copy, const cv::Vec3f& circle, const std::string& text, int originX, int originY) {
+void mark_circle(cv::Mat& frame_copy, const cv::Vec3f& circle, const std::string& text, int originX, int originY) {
     cv::Point center(cvRound(circle[0]), cvRound(circle[1]));
     int radius = cvRound(circle[2]);
     cv::circle(frame_copy, cv::Point(originX + center.x, originY + center.y), 2, cv::Scalar(0, 255, 0), 2); // 中心
     cv::circle(frame_copy, cv::Point(originX + center.x, originY + center.y), radius, cv::Scalar(0, 255, 0), 2); // 绘制圆
     cv::putText(frame_copy, text, cv::Point(originX + center.x - 40, originY + center.y - 40),
                 cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 255), 1);
-    return frame_copy;
 }
 
 // 标记直线+文本+坐标（霍夫直线）
-cv::Mat mark_line(cv::Mat& frame_copy, cv::Vec4i& line, const std::string& text, int originX, int originY) {
+void mark_line(cv::Mat& frame_copy, cv::Vec4i& line, const std::string& text, int originX, int originY) {
     cv::line(frame_copy, cv::Point(line[0], line[1]), cv::Point(line[2], line[3]), cv::Scalar(0, 255, 0), 2); // 绘制直线
     cv::putText(frame_copy, text, cv::Point(originX + line[0], originY + line[1] - 10),
                 cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 0, 255), 1);
-    return frame_copy;
 }
 #pragma endregion
 } // namespace cv_functions

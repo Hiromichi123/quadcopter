@@ -5,7 +5,7 @@ VisionNode::VisionNode() : Node("vision_pub") {
     // frame_pub = this->create_publisher<sensor_msgs::msg::CompressedImage>("frame", 10); // 发布压缩图像调试
     frame_sub = this->create_subscription<sensor_msgs::msg::Image>("/camera/ground", 1, std::bind(&VisionNode::ground_callback, this, std::placeholders::_1));
     vision_msg = std::make_shared<cv_tools::msg::VisionMsg>(); // 创建消息实例
-    cv_tools = std::make_shared<cv_functions::CVTools>(vision_msg);  // 创建工具类实例
+    cv_tools = std::make_shared<CVTools>(vision_msg);  // 创建工具类实例
     RCLCPP_INFO(this->get_logger(), "Init complete");
 }
 

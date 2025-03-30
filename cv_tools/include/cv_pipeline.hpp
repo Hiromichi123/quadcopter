@@ -8,15 +8,16 @@ namespace cv_functions {
 template<typename T>
 class cvPipeline {
 public:
+    // 添加处理
     template<typename Func, typename... Args>
     cvPipeline& did(Func func, Args... args) {
-        steps.push_back([func, args...](T& data) { // Lambda 封装带参数的函数
+        steps.push_back([func, args...](T& data) { // Lambda 封装
             func(data, args...);
         });
         return *this; // 支持链式
     }
 
-    // 处理泛型
+    // 最后调用，处理泛型
     void process(T& data) {
         for (auto& step : steps) { // 迭代执行函数
             step(data);

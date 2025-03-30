@@ -7,8 +7,8 @@
 #include <cv_tools/msg/vision_msg.hpp>
 #include "cv_pipeline.hpp"
 #include "cv_functions.hpp"
+using namespace cv_functions;
 
-namespace cv_functions{
 class CVTools {
 public:
     explicit CVTools(std::shared_ptr<cv_tools::msg::VisionMsg> msg) : msg(msg) {}
@@ -17,7 +17,7 @@ public:
     cv::Mat red_circle_detect(const cv::Mat& frame) {
         std::vector<cv::Vec3f> circles; // 存储霍夫圆
         cv::Mat frame_copy = frame.clone();
-        cv_functions::cvPipeline<cv::Mat> red_circle_pipe;
+        cvPipeline<cv::Mat> red_circle_pipe;
         red_circle_pipe.did(GaussianBlur, 3)
                        .did(cvtColor, cv::COLOR_BGR2HSV)
                        .did(double_mask, cv::Scalar(0, 70, 50), cv::Scalar(10, 255, 255), 
@@ -27,7 +27,7 @@ public:
                        .process(frame_copy);
 
         for (const auto& circle : circles) {
-            cv_functions::mark_circle(frame_copy, circle, "red circle", 0, 0);
+            mark_circle(frame_copy, circle, "red circle", 0, 0);
             //填充ros消息
             fill_circle_msg(true, circle[1] - frame_copy.rows/2, circle[0] - frame_copy.cols/2);
             return frame_copy;
@@ -42,7 +42,7 @@ public:
         cv::Mat thresh, edges;
         cv::Mat frame_copy = frame.clone();
 
-        cv_functions::cvPipeline<cv::Mat> image_pipe;
+        cvPipeline<cv::Mat> image_pipe;
         image_pipe.did(cvtColor, cv::COLOR_BGR2HSV) // 图像管道
                   .did(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
                   .did(cvtColor, cv::COLOR_BGR2GRAY)
@@ -51,7 +51,7 @@ public:
                   .did(findContours, std::ref(contours), cv::RETR_TREE, cv::CHAIN_APPROX_NONE)
                   .process(frame_copy);
         
-        cv_functions::cvPipeline<std::vector<std::vector<cv::Point>>> contours_pipe; // 轮廓管道
+        cvPipeline<std::vector<std::vector<cv::Point>>> contours_pipe; // 轮廓管道
         contours_pipe.did(filter_contours_by_area, 500)
                      .did(filter_contours_by_aspect_ratio, 0.8, 1.25)
                      .did(filter_contours_by_centroid, 20)
@@ -59,7 +59,7 @@ public:
 
         for (auto& contour : contours) {
             std::vector<cv::Point> approx; // 存储近似多边形
-            cv_functions::cvPipeline<std::vector<cv::Point>> approx_pipe;
+            cvPipeline<std::vector<cv::Point>> approx_pipe;
             approx_pipe.did(approxPolyDP, approx, 0.03 * cv::arcLength(contour, true), true)
                        .process(contour);
             if (approx.size() == 4) {
@@ -91,7 +91,7 @@ public:
             std::vector<std::vector<cv::Point>> contours; // 存储轮廓
             cv::Mat thresh, edges; // 存储边缘
             
-            cv_functions::cvPipeline<cv::Mat> image_pipe;
+            cvPipeline<cv::Mat> image_pipe;
             image_pipe.did(cvtColor, cv::COLOR_BGR2HSV) // 图像管道
                       .did(mask, cv::Scalar(20, 100, 100), cv::Scalar(40, 255, 255))
                       .did(cvtColor, cv::COLOR_BGR2GRAY)
@@ -105,13 +105,13 @@ public:
             // dp=1, minDist=50, param1=10, param2=33, minRadius=20, maxRadius=0
             cv::HoughCircles(edges, circles, cv::HOUGH_GRADIENT, 1, 50, 10, 33, 20, 0);
             for (const auto& circle : circles) {
-                cv_functions::mark_circle(frame_copy, circle, color_name + " circle", 0, 0);
+                mark_circle(frame_copy, circle, color_name + " circle", 0, 0);
                 // 填充ros消息
                 fill_circle_msg(true, circle[1] - frame_copy.rows/2, circle[0] - frame_copy.cols/2);
                 break;
             }
 
-            cv_functions::cvPipeline<std::vector<std::vector<cv::Point>>> contours_pipe; // 轮廓管道
+            cvPipeline<std::vector<std::vector<cv::Point>>> contours_pipe; // 轮廓管道
             contours_pipe.did(filter_contours_by_area, 500)
                          .did(filter_contours_by_aspect_ratio, 0.8, 1.25)
                          .did(filter_contours_by_centroid, 20)
@@ -122,7 +122,7 @@ public:
                 std::vector<cv::Point> approx;
                 cv::approxPolyDP(cnt, approx, 0.03 * cv::arcLength(cnt, true), true);
                 if (approx.size() == 4) {
-                    cv_functions::mark_contour(frame_copy, cnt, color_name+"square", 0, 0);
+                    mark_contour(frame_copy, cnt, color_name+"square", 0, 0);
                     // 填充ros消息
                     cv::Moments m = cv::moments(cnt);
                     fill_square_msg(true, static_cast<int>(m.m01 / m.m00) - frame_copy.rows / 2,
@@ -141,7 +141,7 @@ public:
         std::vector<cv::Vec4i> lines; // 存储直线
         cv::Mat thresh, edges;
         cv::Mat frame_copy = frame.clone();
-        cv_functions::cvPipeline<cv::Mat> image_pipe;
+        cvPipeline<cv::Mat> image_pipe;
         image_pipe.did(ratio_cut, 1/6, 1/6, 0, 0) // 左右各切割1/6
                   .did(GaussianBlur, 3)
                   .did(cvtColor, cv::COLOR_BGR2GRAY)
@@ -151,32 +151,28 @@ public:
                   .did(HoughLinesP, std::ref(lines), 1, CV_PI / 180, 50, 100, 50)
                   .process(frame_copy);
         
-        if (lines.empty()) {
+        // 最长的直线
+        int lateral_error = 0; cv::Vec4i line; auto longest_line = getLongestLine(lines);
+        if (longest_line.has_value()) {
+            line = longest_line.value();
+            mark_line(frame_copy, line, "line", 0, 0);
+            lateral_error = (line[0] + line[2]) / 2 - frame.cols / 2;
+        } else {
             fill_line_msg(false, 0, 0);
             return frame_copy;
         }
-
-        // 找到最长的直线
-        auto best_line = *std::max_element(lines.begin(), lines.end(), [](const cv::Vec4i& a, const cv::Vec4i& b) {
-            return cv::norm(cv::Point(a[0], a[1]) - cv::Point(a[2], a[3])) < cv::norm(cv::Point(b[0], b[1]) - cv::Point(b[2], b[3]));
-        });
-        cv::line(frame_copy, cv::Point(best_line[0], best_line[1]), cv::Point(best_line[2], best_line[3]), cv::Scalar(0, 0, 255), 3);
-
-        int lateral_error = (best_line[0] + best_line[2]) / 2 - frame.cols / 2;
 
         // 控制器优化
         if (std::abs(lateral_error) < 10) { lateral_error = 0;
         } else { lateral_error *= 1;
         }
 
-        double line_angle = std::atan2(best_line[3] - best_line[1], best_line[2] - best_line[0]);
+        double line_angle = std::atan2(line[3] - line[1], line[2] - line[0]);
         double line_angle_body = line_angle - CV_PI / 2;
         line_angle_body = std::fmod(line_angle_body, 2 * CV_PI);
         double desired_angle = 0;
         double angle_error = line_angle - desired_angle;
-        if (angle_error > CV_PI) {
-            angle_error -= 2 * CV_PI;
-        }
+        if (angle_error > CV_PI) { angle_error -= 2 * CV_PI; }
 
         angle_error = angle_error / (CV_PI / 2);
         if (std::abs(angle_error) < 0.1) {
@@ -212,6 +208,4 @@ private:
     }
 # pragma endregion
 };
-
-} // namespace cv_functions
 #endif
