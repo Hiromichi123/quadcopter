@@ -1,0 +1,20 @@
+[package]
+name = "core_rs"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name="quad_node"
+path="src/quadcopter.rs"
+
+[dependencies]
+rclrs = "*"
+anyhow = "*"
+std_msgs = "*"
+mavros_msgs = "*"
+geometry_msgs = "*"
+ros2_tools =  "*"
+vision_py = "*"
+
+[package.metadata.ros]
+install_to_share = ["launch"]
