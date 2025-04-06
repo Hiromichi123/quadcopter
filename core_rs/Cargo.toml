@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name="quad_node"
-path="src/quadcopter.rs"
+name="main_node"
+path="src/main.rs"
 
 [dependencies]
 rclrs = "*"
