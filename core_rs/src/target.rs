@@ -1,5 +1,4 @@
 use std::f64::consts::PI;
-use std::time::SystemTime;
 use geometry_msgs::msg::PoseStamped;
 use rclrs::Clock;
 
@@ -12,7 +11,8 @@ pub struct Target {
 impl Target {
     pub fn new(x: f64, y: f64, z: f64, yaw: f64) -> Self {
         let mut pose = PoseStamped::default();
-        pose.header.stamp = Clock::now().into();
+        pose.header.stamp.sec = (Clock::system().now().nsec / 1_000_000_000) as i32;
+        pose.header.stamp.nanosec = (Clock::system().now().nsec % 1_000_000_000) as u32;
         pose.header.frame_id = "base_link".into();
         pose.pose.position.x = x;
         pose.pose.position.y = y;
@@ -47,7 +47,8 @@ impl Target {
     pub fn set_z(&mut self, z: f64) { self.pose_stamped.pose.position.z = z; }
     pub fn set_yaw(&mut self, yaw: f64) { self.pose_stamped.pose.orientation.z = (yaw / 2.0).sin(); self.pose_stamped.pose.orientation.w = (yaw / 2.0).cos(); }
     // 设置时间戳
-    pub fn set_time(&mut self, time: SystemTime) { self.pose_stamped.header.stamp = time.into(); }
+    pub fn set_time_now(&mut self) { self.pose_stamped.header.stamp.sec = (Clock::system().now().nsec / 1_000_000_000) as i32;
+                                    self.pose_stamped.header.stamp.nanosec = (Clock::system().now().nsec % 1_000_000_000) as u32; }
 }
 
 // 实现到PoseStamped的转换

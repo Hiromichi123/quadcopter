@@ -1,6 +1,5 @@
 use geometry_msgs::msg::TwistStamped;
 use rclrs::Clock;
-use std::time::SystemTime;
 
 // 速度
 pub struct Velocity {
@@ -10,7 +9,8 @@ pub struct Velocity {
 impl Velocity {
     pub fn new(v_x: f64, v_y: f64, v_z: f64, v_yaw: f64, v_pitch: f64, v_roll: f64) -> Self {
         let mut twist = TwistStamped::default();
-        twist.header.stamp = Clock::now().into();
+        twist.header.stamp.sec = (Clock::system().now().nsec / 1_000_000_000) as i32;
+        twist.header.stamp.nanosec = (Clock::system().now().nsec % 1_000_000_000) as u32;
         twist.header.frame_id = "base_link".into();
         twist.twist.linear.x = v_x;
         twist.twist.linear.y = v_y;
@@ -40,7 +40,8 @@ impl Velocity {
     pub fn set_vpitch(&mut self, vpitch: f64) { self.twist_stamped.twist.angular.y = vpitch; }
     pub fn set_vroll(&mut self, vroll: f64) { self.twist_stamped.twist.angular.x = vroll; }
     // 设置时间戳
-    pub fn set_time(&mut self, time: SystemTime) { self.twist_stamped.header.stamp = time.into(); }
+    pub fn set_time_now(&mut self) { self.twist_stamped.header.stamp.sec = (Clock::system().now().nsec / 1_000_000_000) as i32;
+                                self.twist_stamped.header.stamp.nanosec = (Clock::system().now().nsec % 1_000_000_000) as u32; }
 }
 
 // 实现到TwistStamped的转换
