@@ -3,6 +3,7 @@ use geometry_msgs::msg::PoseStamped;
 use rclrs::Clock;
 
 // 目标点
+#[derive(Clone)]
 pub struct Target {
     pub reached: bool,
     pose_stamped: PoseStamped,
@@ -56,16 +57,6 @@ impl Target {
     // 设置时间戳
     pub fn set_time_now(&mut self) { self.pose_stamped.header.stamp.sec = (Clock::system().now().nsec / 1_000_000_000) as i32;
                                     self.pose_stamped.header.stamp.nanosec = (Clock::system().now().nsec % 1_000_000_000) as u32; }
-}
-
-// clone trait
-impl Clone for Target {
-    fn clone(&self) -> Self {
-        Target {
-            reached: self.reached,
-            pose_stamped: self.pose_stamped.clone(),
-        }
-    }
 }
 
 // 实现到PoseStamped的转换
