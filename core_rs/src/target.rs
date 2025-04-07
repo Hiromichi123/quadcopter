@@ -9,6 +9,13 @@ pub struct Target {
 }
 
 impl Target {
+    pub fn default() -> Self {
+        Target {
+            reached: false,
+            pose_stamped: PoseStamped::default(),
+        }
+    }
+
     pub fn new(x: f64, y: f64, z: f64, yaw: f64) -> Self {
         let mut pose = PoseStamped::default();
         pose.header.stamp.sec = (Clock::system().now().nsec / 1_000_000_000) as i32;
@@ -49,6 +56,16 @@ impl Target {
     // 设置时间戳
     pub fn set_time_now(&mut self) { self.pose_stamped.header.stamp.sec = (Clock::system().now().nsec / 1_000_000_000) as i32;
                                     self.pose_stamped.header.stamp.nanosec = (Clock::system().now().nsec % 1_000_000_000) as u32; }
+}
+
+// clone trait
+impl Clone for Target {
+    fn clone(&self) -> Self {
+        Target {
+            reached: self.reached,
+            pose_stamped: self.pose_stamped.clone(),
+        }
+    }
 }
 
 // 实现到PoseStamped的转换

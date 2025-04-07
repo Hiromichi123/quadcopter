@@ -2,6 +2,7 @@ mod quadcopter;
 mod flight_controller;
 mod target;
 mod velocity;
+mod path;
 
 // 主程序入口
 fn main() {

@@ -13,7 +13,7 @@ use mavros_msgs::{
 // 自定义包
 use ros2_tools::msg::LidarPose;
 // crate
-use crate::{quadcopter::SelfPos, target::Target, velocity::Velocity};
+use crate::{quadcopter::SelfPos, target::Target, velocity::Velocity, path::Path};
 
 const DEFAULT_POS_CHECK_DISTANCE: f64 = 0.25;
 
@@ -204,6 +204,18 @@ impl FlightController {
             self.fly_by_velocity(velocity);
             self.executor.spin(SpinOptions::default().timeout(Duration::ZERO));
             sleep(Duration::from_millis(50));
+        }
+    }
+
+    // 路径航点飞行，已兼容target版本
+    pub fn fly_by_path(&mut self, path: Arc<Path>) {
+        while self.context.ok() {
+            if let Some(mut waypoint) = path.get_next_waypoint() {
+                self.fly_to_target(&mut waypoint);
+            } else {
+                println!("航点已全部执行完毕");
+                break;
+            }
         }
     }
 }

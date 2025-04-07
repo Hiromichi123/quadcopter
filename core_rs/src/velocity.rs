@@ -7,6 +7,12 @@ pub struct Velocity {
 }
 
 impl Velocity {
+    pub fn default() -> Self {
+        Velocity {
+            twist_stamped: TwistStamped::default(),
+        }
+    }
+    
     pub fn new(v_x: f64, v_y: f64, v_z: f64, v_yaw: f64, v_pitch: f64, v_roll: f64) -> Self {
         let mut twist = TwistStamped::default();
         twist.header.stamp.sec = (Clock::system().now().nsec / 1_000_000_000) as i32;
