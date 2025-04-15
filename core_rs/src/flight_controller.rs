@@ -59,7 +59,7 @@ impl FlightController {
 
         let lidar_pos = Arc::new(Mutex::new(LidarPose::default()));
         let lidar_pos_mut = Arc::clone(&lidar_pos);
-        let lidar_sub = node.create_subscription::<ros2_tools::msg::LidarPose, _>("lidar_pose".qos(QoSProfile::default().best_effort()),
+        let lidar_sub = node.create_subscription::<ros2_tools::msg::LidarPose, _>("lidar_data".qos(QoSProfile::default().best_effort()),
             move |msg: LidarPose| {
                 *lidar_pos_mut.lock().unwrap() = msg.clone();
                 let mut self_pos_mut = self_pos_mut.lock().unwrap();
@@ -104,8 +104,9 @@ impl FlightController {
     pub fn pre_flight_checks_loop(&mut self) -> Result<(), RclrsError> {
         // 等待飞控连接
         while self.context.ok() && !self.current_state.lock().unwrap().connected {
-            self.executor.spin(SpinOptions::default().timeout(Duration::ZERO));
-            sleep(Duration::from_secs(1));
+            self.executor.spin(SpinOptions::default().timeout(Duration::from_millis(20)));
+            println!("等待飞控连接...");
+            sleep(Duration::from_millis(20));
         }
 
         // 起飞预发布
@@ -113,9 +114,10 @@ impl FlightController {
         for _ in 0..20 {
             simp.set_time_now();
             self.pos_pub.publish(simp.get_pose().clone()).unwrap();
-            self.executor.spin(SpinOptions::default().timeout(Duration::ZERO));
-            sleep(Duration::from_secs(1));
+            self.executor.spin(SpinOptions::default().timeout(Duration::from_millis(20)));
+            sleep(Duration::from_millis(20));
         }
+        println!("起飞预发布完成");
 
         let mut offb_set_mode = SetMode_Request::default();
         offb_set_mode.custom_mode = "OFFBOARD".to_string();
@@ -128,23 +130,23 @@ impl FlightController {
         while self.context.ok() {
             simp.set_time_now();
             self.pos_pub.publish(simp.get_pose().clone()).unwrap();
-            let state = self.current_state.lock().unwrap();           
-            if !state.armed && (Instant::now() - last_request > Duration::from_secs(1)) {
+
+            if !self.current_state.lock().unwrap().armed && (Instant::now() - last_request > Duration::from_secs(1)) {
                 self.arming_client.async_send_request_with_callback(&arm_cmd, |res| {
                     if res.success { println!("arming..."); }
                 })?;
                 last_request = Instant::now();
-            } else if state.mode != "OFFBOARD" && (Instant::now() - last_request > Duration::from_secs(1)) {
+            } else if self.current_state.lock().unwrap().mode != "OFFBOARD" && (Instant::now() - last_request > Duration::from_secs(1)) {
                 self.set_mode_client.async_send_request_with_callback(&offb_set_mode, |res| {
                     if res.mode_sent { println!("armed and OFFBOARDING..."); }
                 })?;
                 last_request = Instant::now();
-            } else if state.armed && state.mode == "OFFBOARD" {
+            } else if self.current_state.lock().unwrap().armed && self.current_state.lock().unwrap().mode == "OFFBOARD" {
                 println!("armed and OFFBOARD success!");
                 break;
             }
-            self.executor.spin(SpinOptions::default().timeout(Duration::ZERO));
-            sleep(Duration::from_secs(1));
+            self.executor.spin(SpinOptions::default().timeout(Duration::from_millis(20)));
+            sleep(Duration::from_millis(20));
         }
         // 起飞点
         self.fly_to_target(&mut simp);
@@ -156,8 +158,8 @@ impl FlightController {
         while self.context.ok() && !self.pos_check(target) {
             target.set_time_now();
             self.pos_pub.publish(target.get_pose().clone()).unwrap();
-            self.executor.spin(SpinOptions::default().timeout(Duration::ZERO));
-            sleep(Duration::from_millis(50));
+            self.executor.spin(SpinOptions::default().timeout(Duration::from_millis(20)));
+            sleep(Duration::from_millis(20));
         }
     }
 
@@ -165,10 +167,10 @@ impl FlightController {
     fn pos_check(&self, target: &mut Target) -> bool {
         if target.reached { return true; }
         let lidar_pos = self.lidar_pos.lock().unwrap(); // 解锁
-        let dx = (lidar_pos.x - target.get_x()).abs();
-        let dy = (lidar_pos.y - target.get_y()).abs();
-        let dz = (lidar_pos.z - target.get_z()).abs();
-        let dyaw = (lidar_pos.yaw - target.get_yaw()).abs();
+        let dx = lidar_pos.x - target.get_x();
+        let dy = lidar_pos.y - target.get_y();
+        let dz = lidar_pos.z - target.get_z();
+        let dyaw = lidar_pos.yaw - target.get_yaw();
         target.reached = (dx.powi(2) + dy.powi(2) + dz.powi(2)).sqrt() < DEFAULT_POS_CHECK_DISTANCE && dyaw < 0.1;
         target.reached
     }
@@ -177,10 +179,10 @@ impl FlightController {
     fn pos_check_strict(&self, target: &mut Target, distance_x: f64, distance_y: f64, distance_z: f64) -> bool {
         if target.reached { return true; }
         let lidar_pos = self.lidar_pos.lock().unwrap(); // 解锁
-        let dx = (lidar_pos.x - target.get_x()).abs();
-        let dy = (lidar_pos.y - target.get_y()).abs();
-        let dz = (lidar_pos.z - target.get_z()).abs();
-        let dyaw = (lidar_pos.yaw - target.get_yaw()).abs();
+        let dx = lidar_pos.x - target.get_x();
+        let dy = lidar_pos.y - target.get_y();
+        let dz = lidar_pos.z - target.get_z();
+        let dyaw = lidar_pos.yaw - target.get_yaw();
         target.reached = dx < distance_x && dy < distance_y && dz < distance_z && dyaw < 0.1;
         target.reached
     }

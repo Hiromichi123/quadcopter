@@ -9,7 +9,7 @@
 
 class LidarDataNode : public rclcpp::Node {
 public:
-    bool using_gazebo = false; // TODO:最好改为启动参数
+    bool using_gazebo = true; // TODO:最好改为启动参数
 
     LidarDataNode() : Node("lidar_data_node") {
         rclcpp::QoS qos_profile = rclcpp::QoS(rclcpp::KeepLast(10)).best_effort();
