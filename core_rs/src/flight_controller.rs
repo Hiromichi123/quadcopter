@@ -15,7 +15,7 @@ use ros2_tools::msg::LidarPose;
 // crate
 use crate::{quadcopter::SelfPos, target::Target, velocity::Velocity, path::Path};
 
-const DEFAULT_POS_CHECK_DISTANCE: f64 = 0.25;
+const DEFAULT_POS_CHECK_DISTANCE: f64 = 0.15;
 
 // 飞行控制器结构体
 #[allow(dead_code)]
@@ -163,26 +163,27 @@ impl FlightController {
         }
     }
 
-    // 自身位置检查，distance为默认误差0.25
+    // 自身位置检查，DEFAULT_POS_CHECK_DISTANCE为默认值0.15
     fn pos_check(&self, target: &mut Target) -> bool {
         if target.reached { return true; }
-        let lidar_pos = self.lidar_pos.lock().unwrap(); // 解锁
-        let dx = lidar_pos.x - target.get_x();
-        let dy = lidar_pos.y - target.get_y();
-        let dz = lidar_pos.z - target.get_z();
-        let dyaw = lidar_pos.yaw - target.get_yaw();
-        target.reached = (dx.powi(2) + dy.powi(2) + dz.powi(2)).sqrt() < DEFAULT_POS_CHECK_DISTANCE && dyaw < 0.1;
+        let lidar_pos = self.lidar_pos.lock().unwrap();
+        let distance = ((lidar_pos.x - target.get_x()).powi(2) + 
+                        (lidar_pos.y - target.get_y()).powi(2) + 
+                        (lidar_pos.z - target.get_z()).powi(2))
+                        .sqrt();
+        let dyaw = lidar_pos.yaw - target.get_yaw().abs();
+        target.reached = distance < DEFAULT_POS_CHECK_DISTANCE && dyaw < 0.1;
         target.reached
     }
 
     // 严格位置检查
     fn pos_check_strict(&self, target: &mut Target, distance_x: f64, distance_y: f64, distance_z: f64) -> bool {
         if target.reached { return true; }
-        let lidar_pos = self.lidar_pos.lock().unwrap(); // 解锁
+        let lidar_pos = self.lidar_pos.lock().unwrap(); 
         let dx = lidar_pos.x - target.get_x();
         let dy = lidar_pos.y - target.get_y();
         let dz = lidar_pos.z - target.get_z();
-        let dyaw = lidar_pos.yaw - target.get_yaw();
+        let dyaw = lidar_pos.yaw - target.get_yaw().abs();
         target.reached = dx < distance_x && dy < distance_y && dz < distance_z && dyaw < 0.1;
         target.reached
     }
