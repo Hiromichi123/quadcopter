@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use crate::target::Target;
+use super::target::Target;
 
 pub struct Path {
     current_index: Mutex<usize>,

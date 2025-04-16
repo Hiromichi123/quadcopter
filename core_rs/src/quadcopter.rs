@@ -5,7 +5,12 @@ use std::sync::{Arc, Mutex};
 // 自定义包
 use vision_py::msg::Vision;
 // crate
-use crate::{flight_controller::FlightController, target::Target, velocity::Velocity};
+#[allow(unused_imports)]
+use crate::flight_controller::{*};
+#[allow(unused_imports)]
+use crate::trajectory::{*};
+#[allow(unused_imports)]
+use crate::fsm::{*};
 
 // 自身位姿结构体
 #[derive(Default)]

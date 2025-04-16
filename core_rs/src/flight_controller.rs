@@ -13,7 +13,10 @@ use mavros_msgs::{
 // 自定义包
 use ros2_tools::msg::LidarPose;
 // crate
-use crate::{quadcopter::SelfPos, target::Target, velocity::Velocity, path::Path};
+#[allow(unused_imports)]
+use crate::quadcopter::{*};
+#[allow(unused_imports)]
+use crate::trajectory::{*};
 
 const DEFAULT_POS_CHECK_DISTANCE: f64 = 0.15;
 

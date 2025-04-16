@@ -1,8 +1,7 @@
 mod quadcopter;
 mod flight_controller;
-mod target;
-mod velocity;
-mod path;
+mod fsm; // 有限状态机
+mod trajectory; // 轨迹
 
 // 主程序入口
 fn main() {
