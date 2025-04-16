@@ -67,7 +67,7 @@ impl Quadcopter {
         loop {
             match flag {
                 0 => {
-                    flight_ctrl.pre_flight_checks_loop().unwrap();
+                    flight_ctrl.pre_flight_checks_loop().unwrap(); // 起飞前检查
                     println!("起飞");
                     flight_ctrl.fly_to_target(&mut first_point);
                     println!("到达指定高度");
@@ -82,6 +82,7 @@ impl Quadcopter {
                         println!("巡线");
                     }
                 }
+                2 => { flight_ctrl.auto_land(); } // 降落
                 _ => break,
             }
             self.executor.spin(SpinOptions::default().timeout(Duration::ZERO));

@@ -221,4 +221,33 @@ impl FlightController {
             }
         }
     }
+
+    // 降落AUTO.LAND模式
+    pub fn auto_land(&mut self) {
+        let mut offb_set_mode = SetMode_Request::default();
+        offb_set_mode.custom_mode = "AUTO.LAND".to_string();
+        let mut last_request = Instant::now();
+        while self.context.ok() {
+            if self.current_state.lock().unwrap().mode != "AUTO.LAND" && (Instant::now() - last_request > Duration::from_secs(1)) {
+                self.set_mode_client.async_send_request_with_callback(&offb_set_mode, |res| {
+                    if res.mode_sent { println!("landing..."); }
+                }).unwrap();
+                last_request = Instant::now();
+            } else if self.current_state.lock().unwrap().mode == "AUTO.LAND" {
+                println!("降落成功");
+                break;
+            }
+            self.executor.spin(SpinOptions::default().timeout(Duration::from_millis(20)));
+            sleep(Duration::from_millis(20));
+        }
+    }
+
+    // 硬着陆，以当前坐标降落
+    pub fn land(&mut self) {
+        let lidar_pos = self.lidar_pos.lock().unwrap();
+        let mut land_point= Target::new(lidar_pos.x, lidar_pos.y, 0.05, lidar_pos.yaw);
+        drop(lidar_pos);
+        println!("landing...");
+        self.fly_to_target(&mut land_point);
+    }
 }
