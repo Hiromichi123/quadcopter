@@ -1,0 +1,21 @@
+<package format="3">
+  <name>core_rs</name>
+  <version>0.0.0</version>
+  <description>TODO: Package description</description>
+  <maintainer email="user@todo.todo">user</maintainer>
+  <license>TODO: License declaration</license>
+
+  <depend>rclrs</depend>
+  <depend>anyhow</depend>
+  <depend>std_msgs</depend>
+  <depend>vision_py</depend>
+  <depend>mavros_msgs</depend>
+  <depend>geometry_msgs</depend>
+  
+  <depend>ros2_tools</depend>
+  <depend>vision</depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>
