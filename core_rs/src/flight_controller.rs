@@ -2,8 +2,9 @@ use rclrs::*;
 use std::fmt;
 use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::watch;
 // ros2相关
 use geometry_msgs::msg::PoseStamped;
 use geometry_msgs::msg::TwistStamped;
@@ -27,7 +28,6 @@ pub struct FlightController {
     node: Arc<Node>,
     context: Context,
     executor: Arc<Mutex<Executor>>,
-    is_square_rx: tokio::sync::watch::Receiver<bool>, // 异步消息接收
     // 订阅组
     lidar_pos: Arc<Mutex<LidarPose>>,
     lidar_sub: Arc<Subscription<LidarPose>>,
@@ -56,7 +56,7 @@ impl fmt::Debug for FlightController {
 // 飞行控制器实现
 #[allow(dead_code)]
 impl FlightController {
-    pub fn new(self_pos_mut: Arc<Mutex<SelfPos>>, is_square_rx: tokio::sync::watch::Receiver<bool>) -> Result<Self, Result<Arc<Self>, RclrsError>> {
+    pub fn new(self_pos_mut: Arc<Mutex<SelfPos>>) -> Result<Self, RclrsError> {
         let context = Context::default_from_env().unwrap();
         let executor = Arc::new(Mutex::new(context.create_basic_executor()));
         let node = executor.lock().unwrap().create_node("flight_ctrl_node").unwrap();
@@ -96,7 +96,7 @@ impl FlightController {
         println!("飞行控制器初始化完成");
 
         Ok(FlightController {
-            node, context, executor, is_square_rx,
+            node, context, executor,
             lidar_pos, lidar_sub,
             current_state, state_sub,
             pos_pub, vel_pub,
@@ -168,7 +168,7 @@ impl FlightController {
     }
 
     // target定点移动，异步版本
-    pub async fn fly_to_target(&mut self, target: Arc<AsyncMutex<Target>>) {
+    pub async fn fly_to_target(&mut self, target: Arc<AsyncMutex<Target>>, is_square_rx: Arc<RwLock<watch::Receiver<bool>>>) {
         let mut target = target.lock().await;
         while self.context.ok() && !self.pos_check(&mut *target) {
             // 发布目标点
@@ -177,13 +177,18 @@ impl FlightController {
             self.executor.lock().unwrap().spin(SpinOptions::default().timeout(Duration::from_millis(20)));
 
             // 异步等待
+            // 这里需要注意，rx是接收器，不能带锁穿越await
+            let mut rx = {
+                let rx = is_square_rx.write().unwrap();
+                rx.clone()
+            };
             tokio::select! {
                 // 正常控制周期
                 _ = tokio::time::sleep(Duration::from_millis(20)) => {}
                 // 中断检查
-                _ = self.is_square_rx.changed() => {
-                    if *self.is_square_rx.borrow() {
-                        println!("任务中断：退出 fly_to_target");
+                _ = rx.changed() => {
+                    if *is_square_rx.read().unwrap().borrow() {
+                        println!("任务中断：挂起 fly_to_target");
                         break;
                     }
                 }
@@ -222,8 +227,8 @@ impl FlightController {
         self.vel_pub.publish(velocity.get_twist().clone()).unwrap();
     }
 
-    // velocity速度飞行，持续时间duration
-    pub fn fly_by_vel_duration(&mut self, velocity: &mut Velocity, duration: f64) {
+    // velocity速度飞行，持续时间duration，异步监听
+    pub async fn fly_by_vel_duration(&mut self, velocity: &mut Velocity, duration: f64, is_square_rx: Arc<RwLock<watch::Receiver<bool>>>) {
         let start_time = SystemTime::now();
         let duration = Duration::from_secs_f64(duration);
         let lidar_pos = self.lidar_pos.lock().unwrap(); // 解锁
@@ -234,12 +239,29 @@ impl FlightController {
             if (start_altitude - lidar_pos.z).abs() > 0.1 { velocity.set_vz(start_altitude - lidar_pos.z); }
             self.fly_by_velocity(velocity);
             self.executor.lock().unwrap().spin(SpinOptions::default().timeout(Duration::ZERO));
-            sleep(Duration::from_millis(50));
+
+            // 异步等待
+            // 这里需要注意，rx是接收器，不能带锁穿越await
+            let mut rx = {
+                let rx = is_square_rx.write().unwrap();
+                rx.clone()
+            };
+            tokio::select! {
+                // 正常控制周期
+                _ = tokio::time::sleep(Duration::from_millis(20)) => {}
+                // 中断检查
+                _ = rx.changed() => {
+                    if *is_square_rx.read().unwrap().borrow() {
+                        println!("任务中断：挂起 fly_by_vel_duration");
+                        break;
+                    }
+                }
+            }
         }
     }
 
     // 异步路径航点飞行
-    pub async fn fly_by_path(&mut self, path: Arc<AsyncMutex<Path>>) {
+    pub async fn fly_by_path(&mut self, path: Arc<AsyncMutex<Path>>, is_square_rx: Arc<RwLock<watch::Receiver<bool>>>) {
         while self.context.ok() {
             let mut path = path.lock().await;
             if path.done().await {
@@ -248,7 +270,7 @@ impl FlightController {
             }
 
             if let Some(waypoint) = path.get_current_waypoint().await {
-                self.fly_to_target(waypoint).await; // 异步等待飞行完成
+                self.fly_to_target(waypoint, is_square_rx.clone()).await; // 异步等待飞行完成
                 path.advance().await; // 航点自增
             }
         }
