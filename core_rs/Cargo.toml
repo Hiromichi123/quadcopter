@@ -14,7 +14,7 @@ std_msgs = "*"
 mavros_msgs = "*"
 geometry_msgs = "*"
 ros2_tools =  "*"
-vision_py = "*"
+cv_tools = "*"
 async-trait = "0.1"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7" }

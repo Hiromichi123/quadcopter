@@ -1,0 +1,6 @@
+bool is_red_detected
+int32 later_error
+float64 distance
+bool is_barcode_detected
+int32 center_x_error
+int32 center_y_error

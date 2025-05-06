@@ -16,10 +16,10 @@ find_package(sensor_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(cv_bridge REQUIRED)
 
-rosidl_generate_interfaces(${PROJECT_NAME} "msg/VisionMsg.msg")
+rosidl_generate_interfaces(${PROJECT_NAME} "msg/VisionMsg.msg" "msg/Vision.msg")
 ament_export_dependencies(rosidl_default_runtime)
 
-add_executable(vision_node src/vision_node.cpp)
+add_executable(vision_node src/vision_new.cpp)
 
 target_include_directories(vision_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

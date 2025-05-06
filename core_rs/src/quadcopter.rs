@@ -1,7 +1,7 @@
 use rclrs::*;
 use std::sync::{Arc, Mutex};
 // 自定义包
-use vision_py::msg::Vision;
+use cv_tools::msg::Vision as Vision;
 // crate
 #[allow(unused_imports)]
 use crate::flight_controller::{*};
@@ -29,12 +29,12 @@ pub struct Quadcopter {
     executor: Arc<Mutex<Executor>>,
     pub self_pos: Arc<Mutex<SelfPos>>, // 自身位姿
     // 订阅组
-    vision_msg: Arc<Mutex<Vision>>,
+    pub vision_msg: Arc<Mutex<Vision>>,
     vision_sub: Arc<Subscription<Vision>>,
 }
 
 impl Quadcopter {
-    pub fn new(is_square_tx: tokio::sync::watch::Sender<bool>) -> Result<Self, RclrsError> {
+    pub fn new(async_tx: tokio::sync::watch::Sender<bool>) -> Result<Self, RclrsError> {
         let context = Arc::new(Context::default_from_env().unwrap());
         let executor = Arc::new(Mutex::new(context.create_basic_executor()));
         let quad_node = executor.lock().unwrap().create_node("quad_node")?;
@@ -43,10 +43,10 @@ impl Quadcopter {
         
         let vision_msg = Arc::new(Mutex::new(Vision::default()));
         let vision_msg_mut = Arc::clone(&vision_msg);
-        let vision_sub = quad_node.create_subscription::<vision_py::msg::Vision, _>("vision", 
+        let vision_sub = quad_node.create_subscription::<Vision, _>("vision", 
             move |msg: Vision| {
                 *vision_msg_mut.lock().unwrap() = msg.clone();
-                let _ = is_square_tx.send(msg.is_square_detected); // 发送异步挂起飞行
+                let _ = async_tx.send(msg.is_barcode_detected); // 发送异步挂起飞行
             }
         )?;
         println!("飞行器初始化完成");

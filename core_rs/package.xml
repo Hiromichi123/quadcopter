@@ -2,13 +2,13 @@
   <name>core_rs</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="user@todo.todo">user</maintainer>
+  <maintainer email="Hiromichi123@qq.com">user</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclrs</depend>
   <depend>anyhow</depend>
   <depend>std_msgs</depend>
-  <depend>vision_py</depend>
+  <depend>cv_tools</depend>
   <depend>mavros_msgs</depend>
   <depend>geometry_msgs</depend>
   
