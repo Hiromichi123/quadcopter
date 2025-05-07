@@ -59,4 +59,8 @@ impl Quadcopter {
             vision_msg, vision_sub,
         })
     }
+
+    pub fn get_self_pos(&self) -> Arc<Mutex<SelfPos>> {
+        self.self_pos.clone()
+    }
 }
