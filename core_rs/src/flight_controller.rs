@@ -37,9 +37,9 @@ pub struct FlightController {
     pos_pub: Arc<Publisher<PoseStamped>>,
     vel_pub: Arc<Publisher<TwistStamped>>,
     // mavros客户端组
-    arming_client: Arc<Client<CommandBool>>,
-    command_client: Arc<Client<CommandLong>>,
-    set_mode_client: Arc<Client<SetMode>>,
+    arming_client: Arc<ClientState<CommandBool>>,
+    command_client: Arc<ClientState<CommandLong>>,
+    set_mode_client: Arc<ClientState<SetMode>>,
 }
 
 // 实现 Debug trait
@@ -59,7 +59,7 @@ impl FlightController {
     pub fn new(self_pos_mut: Arc<Mutex<SelfPos>>) -> Result<Self, RclrsError> {
         let context = Context::default_from_env().unwrap();
         let executor = Arc::new(Mutex::new(context.create_basic_executor()));
-        let node = executor.lock().unwrap().create_node("flight_ctrl_node").unwrap();
+        let node: Arc<Node> = executor.lock().unwrap().create_node("flight_ctrl_node").unwrap().into();
 
         let lidar_pos = Arc::new(Mutex::new(LidarPose::default()));
         let lidar_pos_mut = Arc::clone(&lidar_pos);
@@ -77,7 +77,7 @@ impl FlightController {
                     ..Default::default() 
                 }
             }
-        ).unwrap();
+        ).unwrap().into();
 
         let current_state = Arc::new(Mutex::new(State::default()));
         let current_state_mut = Arc::clone(&current_state);
@@ -85,14 +85,15 @@ impl FlightController {
             move |msg: State| {
                 *current_state_mut.lock().unwrap() = msg;
             }
-        ).unwrap();
+        ).unwrap().into();
 
-        let pos_pub = node.create_publisher::<geometry_msgs::msg::PoseStamped>("mavros/setpoint_position/local").unwrap();
-        let vel_pub = node.create_publisher::<geometry_msgs::msg::TwistStamped>("mavros/setpoint_velocity/cmd_vel").unwrap();
+        let pos_pub = node.create_publisher::<geometry_msgs::msg::PoseStamped>("mavros/setpoint_position/local").unwrap().into();
+        let vel_pub = node.create_publisher::<geometry_msgs::msg::TwistStamped>("mavros/setpoint_velocity/cmd_vel").unwrap().into();
         
         let arming_client = node.create_client::<CommandBool>("mavros/cmd/arming").unwrap();
         let command_client = node.create_client::<CommandLong>("mavros/cmd/command").unwrap();
         let set_mode_client = node.create_client::<SetMode>("mavros/set_mode").unwrap();
+        
         println!("飞行控制器初始化完成");
 
         Ok(FlightController {
@@ -105,12 +106,12 @@ impl FlightController {
     }
 
     // 预飞行检查
-    pub fn pre_flight_checks_loop(&mut self) -> Result<(), RclrsError> {
+    pub async fn pre_flight_checks_loop(&mut self) -> Result<(), RclrsError> {
         // 等待飞控连接
         while self.context.ok() && !self.current_state.lock().unwrap().connected {
             self.executor.lock().unwrap().spin(SpinOptions::default().timeout(Duration::from_millis(20)));
             println!("等待飞控连接...");
-            sleep(Duration::from_millis(20));
+            sleep(Duration::from_millis(20)).await;
         }
 
         // 起飞预发布
@@ -119,7 +120,7 @@ impl FlightController {
             simp.set_time_now();
             self.pos_pub.publish(simp.get_pose().clone()).unwrap();
             self.executor.lock().unwrap().spin(SpinOptions::default().timeout(Duration::from_millis(20)));
-            sleep(Duration::from_millis(20));
+            sleep(Duration::from_millis(20)).await;
         }
         println!("起飞预发布完成");
 
@@ -129,7 +130,11 @@ impl FlightController {
         let mut arm_cmd = CommandBool_Request::default();
         arm_cmd.value = true;
 
-        // mavros服务响应
+        // 等待 service 就绪
+        self.arming_client.notify_on_service_ready().await?;
+        self.set_mode_client.notify_on_service_ready().await?;
+
+        // mavros状态检测与服务调用
         let mut last_request = Instant::now();
         while self.context.ok() {
             simp.set_time_now();

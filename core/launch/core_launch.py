@@ -48,10 +48,10 @@ def generate_launch_description():
             package='ros2_tools',
             executable=node
             ) for node in ros2_tools_nodes],
-        Node(
+        '''Node(
             package='vision',
             executable='vision_node.py',
-        ),
+        ),'''
         Node(
             package='servo_control',
             executable='servo_control',

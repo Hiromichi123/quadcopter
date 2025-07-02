@@ -37,7 +37,7 @@ impl Quadcopter {
     pub fn new(async_tx: tokio::sync::watch::Sender<bool>) -> Result<Self, RclrsError> {
         let context = Arc::new(Context::default_from_env().unwrap());
         let executor = Arc::new(Mutex::new(context.create_basic_executor()));
-        let quad_node = executor.lock().unwrap().create_node("quad_node")?;
+        let quad_node: Arc<Node> = executor.lock().unwrap().create_node("quad_node")?.into();
 
         let self_pos = Arc::new(Mutex::new(SelfPos::default()));
         
@@ -48,7 +48,7 @@ impl Quadcopter {
                 *vision_msg_mut.lock().unwrap() = msg.clone();
                 let _ = async_tx.send(msg.is_barcode_detected); // 发送异步挂起飞行
             }
-        )?;
+        )?.into();
         println!("飞行器初始化完成");
 
         Ok(Quadcopter {

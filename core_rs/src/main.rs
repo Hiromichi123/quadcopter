@@ -1,4 +1,4 @@
-mod quadcopter; // 无人机本体（逻辑代码）
+mod quadcopter; // 无人机
 mod flight_controller; // 飞行控制器
 mod fsm; // 有限状态机
 mod trajectory; // 轨迹库
