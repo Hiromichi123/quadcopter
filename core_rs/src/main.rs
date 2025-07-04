@@ -18,9 +18,9 @@ fn main() {
 
     let quad_node = Quadcopter::new(is_barcode_tx).expect("quad_node:飞行器节点创建失败");
 
-    // 起飞前检查 + 找杆
+    // 异步执行起飞前检查和找杆
     let mut flight_ctrl_node = Arc::new(Mutex::new(FlightController::new(quad_node.self_pos.clone()).expect("flight_ctrl_node: 同步飞行控制器节点创建失败")));
-    stage_one(&mut flight_ctrl_node, quad_node.vision_msg.clone()); 
+    Runtime::new().unwrap().block_on(stage_one(&mut flight_ctrl_node, quad_node.vision_msg.clone())); 
 
     // 记录当前位姿
     let self_pos = quad_node.get_self_pos();
@@ -45,9 +45,9 @@ fn main() {
 }
 
 // 起飞前检查 + 找杆
-fn stage_one(flight_controller: &mut Arc<Mutex<FlightController>>, vision_msg: Arc<Mutex<Vision>>) {
+async fn stage_one(flight_controller: &mut Arc<Mutex<FlightController>>, vision_msg: Arc<Mutex<Vision>>) {
     let mut flight_ctrl = flight_controller.lock().unwrap();
-    flight_ctrl.pre_flight_checks_loop().unwrap(); // 起飞前检查
+    flight_ctrl.pre_flight_checks_loop().await.unwrap(); // 起飞前检查
 
     println!("预检查结束，起飞");
     let mut first_point = Target::new(0.0, 0.0, 1.0, 0.0);

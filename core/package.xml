@@ -17,7 +17,7 @@
   <depend>std_msgs</depend>
   <depend>mavros_msgs</depend>
   <depend>ros2_tools</depend>
-  <depend>vision</depend>
+  <depend>vision_py</depend>
 
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

@@ -5,6 +5,7 @@ use std::time::{Duration, Instant, SystemTime};
 use std::sync::{Arc, Mutex, RwLock};
 use tokio::sync::Mutex as AsyncMutex;
 use tokio::sync::watch;
+use anyhow::{Result, Context as AnyhowContext}; // context和rclrs上下文context冲突
 // ros2相关
 use geometry_msgs::msg::PoseStamped;
 use geometry_msgs::msg::TwistStamped;
@@ -106,24 +107,31 @@ impl FlightController {
     }
 
     // 预飞行检查
-    pub async fn pre_flight_checks_loop(&mut self) -> Result<(), RclrsError> {
+    pub async fn pre_flight_checks_loop(&mut self) -> Result<()> {
         // 等待飞控连接
         while self.context.ok() && !self.current_state.lock().unwrap().connected {
-            self.executor.lock().unwrap().spin(SpinOptions::default().timeout(Duration::from_millis(20)));
+            self.executor
+                .lock()
+                .unwrap()
+                .spin(SpinOptions::default().timeout(Duration::from_millis(20)));
             println!("等待飞控连接...");
-            sleep(Duration::from_millis(20)).await;
+            tokio::time::sleep(Duration::from_millis(20)).await;
         }
 
         // 起飞预发布
         let mut simp = Target::new(0.0, 0.0, 0.5, 0.0);
         for _ in 0..20 {
             simp.set_time_now();
-            self.pos_pub.publish(simp.get_pose().clone()).unwrap();
-            self.executor.lock().unwrap().spin(SpinOptions::default().timeout(Duration::from_millis(20)));
-            sleep(Duration::from_millis(20)).await;
+            self.pos_pub.publish(simp.get_pose().clone())?;
+            self.executor
+                .lock()
+                .unwrap()
+                .spin(SpinOptions::default().timeout(Duration::from_millis(20)));
+            tokio::time::sleep(Duration::from_millis(20)).await;
         }
         println!("起飞预发布完成");
 
+        // 准备服务请求
         let mut offb_set_mode = SetMode_Request::default();
         offb_set_mode.custom_mode = "OFFBOARD".to_string();
 
@@ -138,26 +146,42 @@ impl FlightController {
         let mut last_request = Instant::now();
         while self.context.ok() {
             simp.set_time_now();
-            self.pos_pub.publish(simp.get_pose().clone()).unwrap();
+            self.pos_pub.publish(simp.get_pose().clone())?;
 
-            if !self.current_state.lock().unwrap().armed && (Instant::now() - last_request > Duration::from_secs(1)) {
-                self.arming_client.async_send_request_with_callback(&arm_cmd, |res| {
-                    if res.success { println!("arming..."); }
-                })?;
+            let state = self.current_state.lock().unwrap().clone();
+            if !state.armed && (Instant::now() - last_request > Duration::from_secs(1)) {
+                let res: mavros_msgs::srv::CommandBool_Response = self
+                        .arming_client
+                        .call(&arm_cmd)?
+                        .await
+                        .context("Arming service wait failed")?;
+                if res.success { 
+                    println!("arming..."); 
+                }
                 last_request = Instant::now();
-            } else if self.current_state.lock().unwrap().mode != "OFFBOARD" && (Instant::now() - last_request > Duration::from_secs(1)) {
-                self.set_mode_client.async_send_request_with_callback(&offb_set_mode, |res| {
-                    if res.mode_sent { println!("armed and OFFBOARDING..."); }
-                })?;
+            } else if state.mode != "OFFBOARD" && (Instant::now() - last_request > Duration::from_secs(1)) {
+                let res: mavros_msgs::srv::SetMode_Response = self
+                    .set_mode_client
+                    .call(&offb_set_mode)?
+                    .await
+                    .context("SetMode service wait failed")?;
+                if res.mode_sent {
+                    println!("armed and OFFBOARDING...");
+                }
                 last_request = Instant::now();
-            } else if self.current_state.lock().unwrap().armed && self.current_state.lock().unwrap().mode == "OFFBOARD" {
+            } else if state.armed && state.mode == "OFFBOARD" {
                 println!("armed and OFFBOARD success!");
                 break;
             }
-            self.executor.lock().unwrap().spin(SpinOptions::default().timeout(Duration::from_millis(20)));
-            sleep(Duration::from_millis(20));
+
+            self.executor
+                .lock()
+                .unwrap()
+                .spin(SpinOptions::default().timeout(Duration::from_millis(20)));
+            tokio::time::sleep(Duration::from_millis(20)).await;
         }
-        // 起飞点
+
+        // 阻塞执行起飞点
         self.fly_to_target_sync(&mut simp);
         Ok(())
     }
@@ -282,23 +306,28 @@ impl FlightController {
     }
 
     // 降落AUTO.LAND模式
-    pub fn auto_land(&mut self) {
+    pub async fn auto_land(&mut self) -> Result<()> {
         let mut offb_set_mode = SetMode_Request::default();
         offb_set_mode.custom_mode = "AUTO.LAND".to_string();
         let mut last_request = Instant::now();
         while self.context.ok() {
             if self.current_state.lock().unwrap().mode != "AUTO.LAND" && (Instant::now() - last_request > Duration::from_secs(1)) {
-                self.set_mode_client.async_send_request_with_callback(&offb_set_mode, |res| {
-                    if res.mode_sent { println!("landing..."); }
-                }).unwrap();
+                let res: mavros_msgs::srv::SetMode_Response = self.set_mode_client
+                    .call(&offb_set_mode)?
+                    .await
+                    .context("SetMode AUTOLAND failed")?;
+                    if res.mode_sent {
+                        println!("开始降落...");
+                    }
                 last_request = Instant::now();
             } else if self.current_state.lock().unwrap().mode == "AUTO.LAND" {
                 println!("降落成功");
                 break;
             }
             self.executor.lock().unwrap().spin(SpinOptions::default().timeout(Duration::from_millis(20)));
-            sleep(Duration::from_millis(20));
+            tokio::time::sleep(Duration::from_millis(20)).await;
         }
+        Ok(())
     }
 
     // 硬着陆，以当前坐标降落
@@ -309,4 +338,59 @@ impl FlightController {
         println!("landing...");
         self.fly_to_target_sync(&mut land_point);
     }
+
+    // 预飞行检查，旧版client写法，25/7/4更新
+    /*
+    pub fn pre_flight_checks_loop(&mut self) -> Result<(), RclrsError> {
+        // 等待飞控连接
+        while self.context.ok() && !self.current_state.lock().unwrap().connected {
+            self.executor.lock().unwrap().spin(SpinOptions::default().timeout(Duration::from_millis(20)));
+            println!("等待飞控连接...");
+            sleep(Duration::from_millis(20));
+        }
+
+        // 起飞预发布
+        let mut simp = Target::new(0.0, 0.0, 0.5, 0.0);
+        for _ in 0..20 {
+            simp.set_time_now();
+            self.pos_pub.publish(simp.get_pose().clone()).unwrap();
+            self.executor.lock().unwrap().spin(SpinOptions::default().timeout(Duration::from_millis(20)));
+            sleep(Duration::from_millis(20));
+        }
+        println!("起飞预发布完成");
+
+        let mut offb_set_mode = SetMode_Request::default();
+        offb_set_mode.custom_mode = "OFFBOARD".to_string();
+
+        let mut arm_cmd = CommandBool_Request::default();
+        arm_cmd.value = true;
+
+        // mavros状态检查
+        let mut last_request = Instant::now();
+        while self.context.ok() {
+            simp.set_time_now();
+            self.pos_pub.publish(simp.get_pose().clone()).unwrap();
+
+            if !self.current_state.lock().unwrap().armed && (Instant::now() - last_request > Duration::from_secs(1)) {
+                self.arming_client.async_send_request_with_callback(&arm_cmd, |res| {
+                    if res.success { println!("arming..."); }
+                })?;
+                last_request = Instant::now();
+            } else if self.current_state.lock().unwrap().mode != "OFFBOARD" && (Instant::now() - last_request > Duration::from_secs(1)) {
+                self.set_mode_client.async_send_request_with_callback(&offb_set_mode, |res| {
+                    if res.mode_sent { println!("armed and OFFBOARDING..."); }
+                })?;
+                last_request = Instant::now();
+            } else if self.current_state.lock().unwrap().armed && self.current_state.lock().unwrap().mode == "OFFBOARD" {
+                println!("armed and OFFBOARD success!");
+                break;
+            }
+            self.executor.lock().unwrap().spin(SpinOptions::default().timeout(Duration::from_millis(20)));
+            sleep(Duration::from_millis(20));
+        }
+        // 起飞点
+        self.fly_to_target_sync(&mut simp);
+        Ok(())
+    }
+    */
 }
