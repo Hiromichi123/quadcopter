@@ -16,6 +16,13 @@ impl Path {
         }
     }
 
+    // 批量添加航点(Vec)
+    pub async fn add_waypoints(&mut self, waypoints: Vec<Target>) {
+        for wp in waypoints {
+            self.add_waypoint(wp).await;
+        }
+    }
+
     // 添加航点(尾部)
     pub async fn add_waypoint(&self, waypoint: Target) {
         let mut waypoints = self.waypoints.lock().await;

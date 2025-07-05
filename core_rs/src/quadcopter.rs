@@ -1,18 +1,16 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
 use rclrs::*;
 use std::sync::{Arc, Mutex};
 // 自定义包
 use cv_tools::msg::Vision as Vision;
 // crate
-#[allow(unused_imports)]
 use crate::flight_controller::{*};
-#[allow(unused_imports)]
 use crate::trajectory::{*};
-#[allow(unused_imports)]
 use crate::fsm::{*};
 
 // 自身位姿结构体
 #[derive(Default)]
-#[allow(dead_code)]
 pub struct SelfPos {
     pub x: f64, pub y: f64, pub z: f64, 
     pub vx: f64, pub vy: f64, pub vz: f64,
@@ -21,7 +19,6 @@ pub struct SelfPos {
     pub dr: f64, pub dp: f64,
 }
 
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct Quadcopter {
     quad_node: Arc<Node>,

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
 mod quadcopter; // 无人机
 mod flight_controller; // 飞行控制器
 mod fsm; // 有限状态机
@@ -18,7 +20,7 @@ fn main() {
 
     let quad_node = Quadcopter::new(is_barcode_tx).expect("quad_node:飞行器节点创建失败");
 
-    // 异步执行起飞前检查和找杆
+    // 起飞+找杆
     let mut flight_ctrl_node = Arc::new(Mutex::new(FlightController::new(quad_node.self_pos.clone()).expect("flight_ctrl_node: 同步飞行控制器节点创建失败")));
     Runtime::new().unwrap().block_on(stage_one(&mut flight_ctrl_node, quad_node.vision_msg.clone())); 
 
@@ -44,7 +46,7 @@ fn main() {
     println!("主程序结束");
 }
 
-// 起飞前检查 + 找杆
+// 起飞 + 找杆
 async fn stage_one(flight_controller: &mut Arc<Mutex<FlightController>>, vision_msg: Arc<Mutex<Vision>>) {
     let mut flight_ctrl = flight_controller.lock().unwrap();
     match flight_ctrl.pre_flight_checks_loop().await {
@@ -75,13 +77,17 @@ async fn stage_one(flight_controller: &mut Arc<Mutex<FlightController>>, vision_
 }
 
 // 异步飞行, 未使用
-#[allow(dead_code)]
 async fn fly(flight_controller: &mut Arc<AsyncMutex<FlightController>>, is_barcode_rx: Arc<RwLock<tokio::sync::watch::Receiver<bool>>>) {
     let path = Arc::new(AsyncMutex::new(Path::new()));
     {
-        path.lock().await.add_waypoint(Target::new(1.0, 0.0, 1.5, 0.0)).await;
-        path.lock().await.add_waypoint(Target::new(5.0, 0.0, 1.5, 0.0)).await;
-        path.lock().await.add_waypoint(Target::new(10.0, 0.0, 1.5, 0.0)).await;
+        let targets = vec![
+            Target::new(1.0, 0.0, 1.5, 0.0),
+            Target::new(5.0, 0.0, 1.5, 0.0),
+            Target::new(10.0, 0.0, 1.5, 0.0),
+        ];
+
+        let mut path_locked = path.lock().await;
+        path_locked.add_waypoints(targets).await;
     }
 
     // 执行异步路径飞行

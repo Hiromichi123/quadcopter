@@ -1,4 +1,5 @@
-#[allow(unused_imports)]
+#![allow(dead_code)]
+#![allow(unused_imports)]
 use rclrs::*;
 use std::time::{Duration, Instant, SystemTime};
 use std::sync::{Arc, Mutex, RwLock};
@@ -22,7 +23,6 @@ use crate::trajectory::{*};
 const DEFAULT_POS_CHECK_DISTANCE: f64 = 0.15;
 
 // 飞行控制器结构体
-#[allow(dead_code)]
 pub struct FlightController {
     node: Arc<Node>,
     context: Context,
@@ -42,7 +42,6 @@ pub struct FlightController {
 }
 
 // 飞行控制器实现
-#[allow(dead_code)]
 impl FlightController {
     pub fn new(self_pos_mut: Arc<Mutex<SelfPos>>) -> Result<Self> {
         let context = Context::default_from_env()
