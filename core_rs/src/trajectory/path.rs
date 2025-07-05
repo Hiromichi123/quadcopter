@@ -16,13 +16,13 @@ impl Path {
         }
     }
 
-    // 添加航点
+    // 添加航点(尾部)
     pub async fn add_waypoint(&self, waypoint: Target) {
         let mut waypoints = self.waypoints.lock().await;
         waypoints.push(waypoint);
     }
 
-    // 删除航点
+    // 删除航点(指定编号)
     pub async fn remove_waypoint(&mut self, erase_num: usize) -> Result<(), String> {
         let mut waypoints = self.waypoints.lock().await;
 
@@ -48,6 +48,11 @@ impl Path {
         } else {
             None // 当前航点不存在
         }
+    }
+
+    // 获取当前航点的编号(值)
+    pub async fn get_index(&self) -> usize {
+        *self.current_index.lock().await
     }
 
     // 下一航点

@@ -30,14 +30,14 @@ fn main() {
     print!("杆坐标: ({}, {})\n", x, y);
     // 二维码点
     let mut target = Target::new(x, y+0.5, 1.5, 1.57);
-    flight_ctrl_node.lock().unwrap().fly_to_target_sync(&mut target);
+    let _ = flight_ctrl_node.lock().unwrap().fly_to_target_sync(&mut target);
     target.set_z(1.0);
-    flight_ctrl_node.lock().unwrap().fly_to_target_sync(&mut target);
+    let _ = flight_ctrl_node.lock().unwrap().fly_to_target_sync(&mut target);
     println!("二维码点到达");
 
     // 速度飞行
     let mut velocity = Velocity::new(0.0, 0.2, 0.0, 0.0, 0.0, 0.0);
-    Runtime::new().unwrap().block_on(flight_ctrl_node.lock().unwrap().fly_by_vel_duration(&mut velocity, 10.0, is_barcode_rx));
+    let _ = Runtime::new().unwrap().block_on(flight_ctrl_node.lock().unwrap().fly_by_vel_duration(&mut velocity, 10.0, is_barcode_rx));
     
     // 后续飞行
     //Runtime::new().unwrap().block_on(fly(&mut flight_ctrl_node, is_barcode_rx)); // 临时创建runtime来运行
@@ -47,17 +47,21 @@ fn main() {
 // 起飞前检查 + 找杆
 async fn stage_one(flight_controller: &mut Arc<Mutex<FlightController>>, vision_msg: Arc<Mutex<Vision>>) {
     let mut flight_ctrl = flight_controller.lock().unwrap();
-    flight_ctrl.pre_flight_checks_loop().await.unwrap(); // 起飞前检查
+    match flight_ctrl.pre_flight_checks_loop().await {
+        Ok(_) => println!("预检查通过, 起飞"),
+        Err(e) => println!("预检查失败: {}", e),
+    };
 
-    println!("预检查结束，起飞");
     let mut first_point = Target::new(0.0, 0.0, 1.0, 0.0);
-    flight_ctrl.fly_to_target_sync(&mut first_point);
-    println!("到达指定高度");
+    match flight_ctrl.fly_to_target_sync(&mut first_point) {
+        Ok(_) => println!("到达定高"),
+        Err(e) => println!("定高失败: {}", e),
+    };
 
     // 找杆
     let mut velocity = Velocity::new(0.0, 0.0, 0.0, 0.1, 0.0, 0.0);
     while vision_msg.lock().unwrap().is_red_detected == false {
-        flight_ctrl.fly_by_velocity(&mut velocity);
+        let _ = flight_ctrl.fly_by_velocity(&mut velocity);
     }
     println!("杆found, 开始校准");
 
@@ -65,7 +69,7 @@ async fn stage_one(flight_controller: &mut Arc<Mutex<FlightController>>, vision_
     velocity.set_vyaw(0.0);
     while vision_msg.lock().unwrap().later_error.abs() > 50 {
         velocity.set_vy(vision_msg.lock().unwrap().later_error as f64 / 100.0); 
-        flight_ctrl.fly_by_velocity(&mut velocity);
+        let _ = flight_ctrl.fly_by_velocity(&mut velocity);
     }
     println!("校准完成");
 }
