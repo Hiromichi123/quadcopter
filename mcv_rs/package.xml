@@ -1,0 +1,15 @@
+<package format="3">
+  <name>mcv_rs</name>
+  <version>1.0.0</version>
+  <description>TODO: A opencv-rust pkg</description>
+  <maintainer email="Hiromichi123@qq.com">user</maintainer>
+  <license>TODO: License declaration</license>
+
+  <depend>rclrs</depend>
+  <depend>anyhow</depend>
+  <depend>opencv</depend>
+  
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

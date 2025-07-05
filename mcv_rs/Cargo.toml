@@ -1,0 +1,13 @@
+[package]
+name = "mcv_rs"
+version = "0.1.0"
+edition = "2025.7.5"
+
+[[bin]]
+name="mcv_node"
+path="src/main.rs"
+
+[dependencies]
+rclrs = "*"
+anyhow = "*"
+opencv = "0.95.0"
