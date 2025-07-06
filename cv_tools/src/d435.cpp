@@ -3,13 +3,30 @@
 D435Node::D435Node() : Node("D435_node") {
     d435_pub = this->create_publisher<cv_tools::msg::Vision>("d435", 10);
     
-    rgb_sub = this->create_subscription<sensor_msgs::msg::Image>("/d435/rgb", 1, std::bind(&D435Node::rgb_cb, this, std::placeholders::_1));
-    depth_sub = this->create_subscription<sensor_msgs::msg::Image>("/d435/depth", 1, std::bind(&D435Node::depth_cb, this, std::placeholders::_1));
+    rgb_sub = this->create_subscription<sensor_msgs::msg::Image>("/camera/camera/color/image_raw", 1, std::bind(&D435Node::rgb_cb, this, std::placeholders::_1));
+    depth_sub = this->create_subscription<sensor_msgs::msg::Image>("/camera/camera/aligned_depth_to_color/image_raw", 1, std::bind(&D435Node::depth_cb, this, std::placeholders::_1));
+
+    // 已弃用，订阅原生d435图像(图像不对齐)
+    //rgb_sub = this->create_subscription<sensor_msgs::msg::Image>("/d435/rgb", 1, std::bind(&D435Node::rgb_cb, this, std::placeholders::_1));
+    //depth_sub = this->create_subscription<sensor_msgs::msg::Image>("/d435/depth", 1, std::bind(&D435Node::depth_cb, this, std::placeholders::_1));
     
     vision_msg = std::make_shared<cv_tools::msg::Vision>();
     RCLCPP_INFO(this->get_logger(), "D435 Init");
 }
 
+void D435Node::rgb_cb(const sensor_msgs::msg::Image::SharedPtr msg) {
+    if (msg->data.empty()) { RCLCPP_ERROR(this->get_logger(), "Empty image received"); return; }
+    cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding);
+    cv::cvtColor(cv_ptr->image, rgb_image, cv::COLOR_RGB2BGR);
+}
+
+void D435Node::depth_cb(const sensor_msgs::msg::Image::SharedPtr msg) {
+    if (msg->data.empty()) { RCLCPP_ERROR(this->get_logger(), "Empty image received"); return; }
+    cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, "16UC1");
+    depth_image = cv_ptr->image;
+}
+
+/* 已弃用，订阅原生d435图像(图像不对齐)
 void D435Node::rgb_cb(const sensor_msgs::msg::Image::SharedPtr msg) {
     if (msg->data.empty()) { RCLCPP_ERROR(this->get_logger(), "Empty image received"); return; }
     cv_bridge::CvImagePtr cv_ptr;
@@ -23,6 +40,7 @@ void D435Node::depth_cb(const sensor_msgs::msg::Image::SharedPtr msg) {
     cv_ptr = cv_bridge::toCvCopy(msg, "32FC1");
     depth_image = cv_ptr->image;
 }
+*/
 
 void process(D435Node& node, cv::Mat rgb_frame, cv::Mat depth_frame) {
     if (rgb_frame.empty() || depth_frame.empty()) { return; }
