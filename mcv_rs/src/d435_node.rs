@@ -11,8 +11,9 @@ use opencv::{
 use sensor_msgs::msg::Image;
 // 自定义包消息
 use cv_tools::msg::Vision;
-// 自定义cvbridge
+// 自定义mod
 use crate::cvbridge_rs::CvBridge;
+use crate::cvchain::CvChain;
 
 
 pub struct D435Node {

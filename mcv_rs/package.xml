@@ -2,7 +2,7 @@
   <name>mcv_rs</name>
   <version>1.0.0</version>
   <description>TODO: A opencv-rust pkg</description>
-  <maintainer email="Hiromichi123@qq.com">user</maintainer>
+  <maintainer email="Hiromichi123@qq.com">Hiromichi</maintainer>
   <license>TODO: License declaration</license>
 
   <depend>rclrs</depend>
@@ -11,6 +11,11 @@
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
   <depend>cv_tools</depend>
+  <build_export_depend>ament_cargo</build_export_depend>
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+  <depend>rosidl_default_runtime</depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
 
   <export>
     <build_type>ament_cargo</build_type>

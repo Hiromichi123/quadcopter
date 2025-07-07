@@ -180,3 +180,11 @@ A类和B类互相持有对方指针，但需要访问对象，典型的前向声
 				2中介者模式实现类之间的交互
 				3依赖注入
 C#可以在成员函数前添加权限，cpp必须写在规定范围。
+
+Rust 的 ROS 2 构建体系中：
+所有通过 rosidl_generator_rs（或 rosidl_typesupport_rust）生成的 .rs 消息类型，不是作为独立 crate 发布的；
+它们是通过 r2r crate 统一引入的；
+r2r crate 的构建过程中会根据你工作空间里的消息包，把类型绑定自动包含进去。
+所以，所有的消息最终都以如下命名空间方式暴露给你：
+r2r::<package_name>::msg::<MessageName>
+且rust不支持生成自定义消息，rust包中仍需要camke辅助构建消息
