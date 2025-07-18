@@ -12,7 +12,6 @@ use sensor_msgs::msg::Image;
 // 自定义包消息
 use cv_tools::msg::Vision;
 // 自定义mod
-use crate::cvbridge_rs::CvBridge;
 use crate::cvchain::CvChain;
 
 
@@ -58,29 +57,16 @@ impl D435Node {
                 "/d435/rgb",
                 move |msg: Image| {
                     if msg.data.is_empty() {
-                        println!("Received empty RGB image");
+                        println!("接收为空");
                         return;
                     }
 
-                    // 1.转换Image到Mat
+                    // 转换ROSImage->RGB->BGR
                     let msg_clone = msg.clone();
-                    let mat_rgb = match CvBridge::imgmsg_to_cv2(&msg_clone) {
-                        Ok(m) => m,
-                        Err(e) => {
-                            eprintln!("Failed to convert image: {}", e);
-                            return;
-                        }
-                    };
+                    *rgb_mat_mut.lock().unwrap() = CvChain::from_ros_image(&msg_clone)?
+                        .cvtColor(imgproc::COLOR_RGB2BGR)?;
 
-                    // 2.转换RGB->BGR
-                    let mut mat_bgr = Mat::default();
-                    if let Err(e) = imgproc::cvt_color(&mat_rgb, &mut mat_bgr, imgproc::COLOR_RGB2BGR, 0) {
-                        eprintln!("cvtColor failed: {}", e);
-                        return;
-                    }
-
-                    // 3.存储处理后的Mat
-                    *rgb_mat_mut.lock().unwrap() = mat_bgr;
+                    Ok(())
                 }
             )
             .context("无法创建RGB订阅器")?
@@ -93,7 +79,7 @@ impl D435Node {
                 "/d435/depth",
                 move |msg: Image| {
                     if msg.data.is_empty() {
-                        println!("Received empty depth image");
+                        println!("接受为空");
                         return;
                     }
 
@@ -101,17 +87,8 @@ impl D435Node {
                     let mut msg_clone = msg.clone();
                     msg_clone.encoding = "mono16".to_string();
 
-                    // 2.使用 cv_bridge 转换为 OpenCV Mat
-                    let mat = match CvBridge::imgmsg_to_cv2(&msg_clone) {
-                        Ok(m) => m,
-                        Err(e) => {
-                            eprintln!("Failed to convert depth image: {}", e);
-                            return;
-                        }
-                    };
-
-                    // 3.存储 Mat
-                    *depth_mat_mut.lock().unwrap() = mat;
+                    // 2.ROSImage->DepthMat(单通道)
+                    *depth_mat_mut.lock().unwrap() = CvChain::from_ros_image(&msg_clone)?
                 },
             )
             .context("无法创建depth订阅器")?
