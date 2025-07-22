@@ -63,10 +63,10 @@ impl D435Node {
 
                     // 转换ROSImage->RGB->BGR
                     let msg_clone = msg.clone();
-                    *rgb_mat_mut.lock().unwrap() = CvChain::from_ros_image(&msg_clone)?
-                        .cvtColor(imgproc::COLOR_RGB2BGR)?;
+                    *rgb_mat_mut.lock().unwrap() = CvChain::from_ros_image(&msg_clone)
+                        .cvtColor(imgproc::COLOR_RGB2BGR)
+                        .mat;
 
-                    Ok(())
                 }
             )
             .context("无法创建RGB订阅器")?
@@ -88,7 +88,8 @@ impl D435Node {
                     msg_clone.encoding = "mono16".to_string();
 
                     // 2.ROSImage->DepthMat(单通道)
-                    *depth_mat_mut.lock().unwrap() = CvChain::from_ros_image(&msg_clone)?
+                    *depth_mat_mut.lock().unwrap() = CvChain::from_ros_image(&msg_clone)
+                                                    .mat;
                 },
             )
             .context("无法创建depth订阅器")?

@@ -8,12 +8,11 @@ name="mcv_node"
 path="src/main.rs"
 
 [dependencies]
-r2r = "*"
 rclrs = "*"
 anyhow = "*"
 sensor_msgs = "*"
 std_msgs = "*"
-cv_tools = "*"
+cv_tools = { path = "../install/cv_tools/share/cv_tools/rust" }
 
 [dependencies.opencv]
 version = "0.95"

@@ -14,7 +14,7 @@ std_msgs = "*"
 mavros_msgs = "*"
 geometry_msgs = "*"
 ros2_tools =  "*"
-cv_tools = "*"
+cv_tools = { path = "../install/cv_tools/share/cv_tools/rust" }
 async-trait = "0.1"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7" }
