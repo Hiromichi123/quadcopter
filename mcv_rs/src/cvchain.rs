@@ -14,16 +14,16 @@ pub struct CvChain {
     pub mat: Mat, // 原始图像
     pub edges: Mat, // Canny边缘
     pub threshold: Mat, // 二值化
-    pub contours: Vector<Vector<Point>>, // Contours轮廓
-    pub circles: Option<Vector<Vec3f>>, // 霍夫圆
-    pub lines: Option<Vector<Vec4i>>,   // 霍夫线
+    pub contours: Vec<Vec<Point>>, // Contours轮廓
+    pub circles: Option<Vec<Vec3f>>, // 霍夫圆
+    pub lines: Option<Vec<Vec4i>>,   // 霍夫线
 }
 
 /// 基本功能方法
 impl CvChain {
     pub fn new(mat: Mat) -> Self {
         let edges = Mat::default();
-        let contours = Vector::<Vector<Point>>::new();
+        let contours = Vec::<Vec<Point>>::new();
         let threshold = Mat::default();
         let circles = None;
         let lines = None;
@@ -113,7 +113,7 @@ impl CvChain {
 
     /// 泛用转换方法
     /// code: imgproc::COLOR_BGR2RGB，COLOR_BGR2GRAY等
-    pub fn cvtColor(&mut self, code: i32) -> &mut Self {
+    pub fn cvt_color(&mut self, code: i32) -> &mut Self {
         let mut dst = Mat::default();
         if let Err(e) = imgproc::cvt_color(&self.mat, &mut dst, code, 0) {
             eprintln!("颜色空间转换失败: {}", code);
@@ -165,25 +165,32 @@ impl CvChain {
     /// mode: imgproc::RETR_EXTERNAL等
     /// method: imgproc::CHAIN_APPROX_SIMPLE等
     /// 示例：find_contours(imgproc::RETR_EXTERNAL, imgproc::CHAIN_APPROX_SIMPLE)
-    pub fn find_contours(
-        self,
-        mode: i32,
-        method: i32,
-    ) -> Self {
-        let mut contours = Vector::<Vector<Point>>::new();
-        if let Err(e) = imgproc::find_contours(
-            &self.mat,
-            &mut contours,
-            mode,
-            method,
-            core::Point::new(0, 0),
-        ) {
-            eprintln!("查找轮廓失败: {:?}", e);
-            return self;
-        }
-        self.contours = contours;
-        self
+pub fn find_contours(
+    mut self,
+    mode: i32,
+    method: i32,
+) -> Self {
+    let mut raw_contours = Vector::<Vector<Point>>::new();
+
+    if let Err(e) = imgproc::find_contours(
+        &self.mat,
+        &mut raw_contours,
+        mode,
+        method,
+        Point::new(0, 0),
+    ) {
+        eprintln!("查找轮廓失败: {:?}", e);
+        return self;
     }
+
+    // 转换为 Vec<Vec<Point>>
+    let contours: Vec<Vec<Point>> = (0..raw_contours.len())
+        .map(|i| raw_contours.get(i).unwrap().to_vec())
+        .collect();
+
+    self.contours = contours;
+    self
+}
 
     /// 单区间掩膜操作
     /// lower: 下限值，upper: 上限值
@@ -260,7 +267,7 @@ impl CvChain {
             return self;
         }
 
-        self.circles = Some(circles);
+        self.circles = Some(circles.to_vec());
         self
     }
 
@@ -293,7 +300,7 @@ impl CvChain {
             return self;
         }
 
-        self.lines = Some(lines);
+        self.lines = Some(lines.to_vec());
         self
     }
 
@@ -323,21 +330,18 @@ impl CvChain {
 impl CvChain {
     /// 过滤靠近轮廓（基于质心距离）
     pub fn filter_contours_by_centroid(&mut self, min_dist: f64) -> &mut Self {
-        use opencv::{core::Vector, core::norm, core::Point2f, imgproc};
-
-        let mut centers: Vector<Point2f> = Vector::new();
-        let mut valid: Vector<Vector<Point>> = Vector::new();
+        let mut centers: Vec<Point2f> = Vec::new();
+        let mut valid: Vec<Vec<Point>> = Vec::new();
 
         for cnt in &self.contours {
-            let m = imgproc::moments(&cnt, false).unwrap();
+            let cnt_vector = Vector::<Point>::from(cnt.clone());
+            let m = imgproc::moments(&cnt_vector, false).unwrap();
             if m.m00 != 0.0 {
                 let cx = (m.m10 / m.m00) as f32;
                 let cy = (m.m01 / m.m00) as f32;
                 let center = Point2f::new(cx, cy);
 
-                // 需要将 `center - *c` 转换为 Point2f，再调用 norm
-                let is_far = (0..centers.len()).all(|i| {
-                    let c = centers.get(i).unwrap();
+                let is_far = centers.iter().all(|c| {
                     let dx = center.x - c.x;
                     let dy = center.y - c.y;
                     let dist = (dx * dx + dy * dy).sqrt();
@@ -359,18 +363,23 @@ impl CvChain {
     pub fn filter_contours_by_area(&mut self, min_area: f64) -> &mut Self {
         self.contours = self.contours
             .iter()
-            .filter(|cnt| opencv::imgproc::contour_area(cnt, false).unwrap() > min_area)
+            .filter(|cnt| {
+                let cnt_vec = Vector::<Point>::from((*cnt).clone());
+                imgproc::contour_area(&cnt_vec, false).unwrap() > min_area
+            })
             .cloned()
             .collect();
         self
     }
+
 
     /// 过滤轮廓（基于长宽比）
     pub fn filter_contours_by_aspect_ratio(&mut self, min_ratio: f64, max_ratio: f64) -> &mut Self {
         self.contours = self.contours
             .iter()
             .filter(|cnt| {
-                let rect = opencv::imgproc::bounding_rect(cnt).unwrap();
+                let cnt_vec = Vector::<Point>::from((*cnt).clone());
+                let rect = imgproc::bounding_rect(&cnt_vec).unwrap();
                 let aspect_ratio = rect.width as f64 / rect.height as f64;
                 aspect_ratio >= min_ratio && aspect_ratio <= max_ratio
             })
@@ -386,25 +395,20 @@ impl CvChain {
     /// epsilon: 近似精度，closed: 是否闭合
     /// 示例：approx_contours(0.01, true)
     pub fn approx_contours(&mut self, epsilon: f64, closed: bool) -> &mut Self {
-        let mut refined: Vec<Vec<Point>> = Vec::new();
+        self.contours = self.contours.iter()
+            .filter_map(|cnt| {
+                let input = Vector::<Point>::from(cnt.clone());
+                let mut approx = Vector::<Point>::new();
 
-        for cnt in &self.contours {
-            let mut approx: Vector<Point> = Vector::new();
-            if let Err(e) = imgproc::approx_poly_dp(
-                &Vector::from(cnt.clone()),
-                &mut approx,
-                epsilon,
-                closed,
-            ) {
-                eprintln!("轮廓近似失败: {:?}", e);
-                continue;
-            }
-
-            // 将 Vector<Point> 转回 Vec<Point>
-            refined.push(approx.to_vec());
-        }
-
-        self.contours = refined;
+                match imgproc::approx_poly_dp(&input, &mut approx, epsilon, closed) {
+                    Ok(_) => Some(approx.to_vec()),
+                    Err(e) => {
+                        eprintln!("轮廓近似失败: {:?}", e);
+                        None
+                    }
+                }
+            })
+            .collect();
         self
     }
 }
@@ -415,9 +419,13 @@ impl CvChain {
     pub fn show_contours(&self) -> &Self {
         let mut out = self.mat.clone();
         for cnt in self.contours.iter() {
+            // 把 Vec<Point> 转为 Vector<Point>
+            let single_cnt: Vector<Point> = Vector::from_iter(cnt.clone());
+            let contours: Vector<Vector<Point>> = Vector::from_iter([single_cnt]);
+
             if let Err(e) = imgproc::draw_contours(
                 &mut out,
-                &Vector::from_iter([cnt.clone()]),
+                &contours,
                 -1,
                 Scalar::new(0.0, 255.0, 0.0, 255.0), // 绿色
                 2,
@@ -429,9 +437,9 @@ impl CvChain {
                 eprintln!("绘制轮廓出错: {:?}", e);
             }
         }
-        
+
         if let Err(e) = highgui::imshow("Contours", &out) {
-            eprintln!("imshow error: {:?}", e);
+            eprintln!("轮廓展示失败: {:?}", e);
         }
         self
     }
