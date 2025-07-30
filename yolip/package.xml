@@ -1,0 +1,25 @@
+<package format="3">
+  <name>yolip</name>
+  <version>1.0.0</version>
+  <description>TODO: A yolo+clip pkg</description>
+  <maintainer email="Hiromichi123@qq.com">Hiromichi</maintainer>
+  <license>TODO: License declaration</license>
+
+  <depend>rclpy</depend>
+  <depend>torch</depend>
+  <depend>torchvision</depend>
+  <depend>ultralytics</depend>
+  <depend>OpenCV</depend>
+  <depend>pyyaml</depend>
+  <depend>matplotlib</depend>
+  <depend>tqdm</depend>
+  <depend>numpy</depend>
+  
+  <depend>messages</depend>
+  <depend>sensor_msgs</depend>
+  <depend>cv_bridge</depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

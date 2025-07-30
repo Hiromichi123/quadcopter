@@ -43,7 +43,7 @@ impl CvChain {
         if let Err(e) = highgui::imshow(window_name, &self.mat) {
             eprintln!("Mat展示失败: {:?}", e);
         }
-        highgui::wait_key(0).unwrap();
+        highgui::wait_key(1).unwrap();
         self
     }
 
@@ -52,7 +52,7 @@ impl CvChain {
         if let Err(e) = highgui::imshow(window_name, &self.edges) {
             eprintln!("Canny边缘展示失败: {:?}", e);
         }
-        highgui::wait_key(0).unwrap();
+        highgui::wait_key(1).unwrap();
         self
     }
 
@@ -61,7 +61,7 @@ impl CvChain {
         if let Err(e) = highgui::imshow(window_name, &self.threshold) {
             eprintln!("二值化展示失败: {:?}", e);
         }
-        highgui::wait_key(0).unwrap();
+        highgui::wait_key(1).unwrap();
         self
     }
 

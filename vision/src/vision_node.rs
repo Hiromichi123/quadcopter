@@ -1,3 +1,4 @@
+/// 原对地摄像头
 #![allow(dead_code)]
 #![allow(unused_imports)]
 use rclrs::*;
@@ -10,7 +11,7 @@ use opencv::{
     imgproc,
 };
 // 自定义msg
-use cv_tools::msg::Vision;
+use messages::msg::Vision;
 // 自定义mod
 use crate::cvbridge_rs::CvBridge;
 use crate::cvchain::CvChain;
@@ -18,7 +19,7 @@ use crate::cvchain::CvChain;
 pub struct VisionNode {
     node: Arc<Node>,
     context: Arc<Context>,
-    excutor: Arc<Mutex<Executor>>,
+    pub executor: Arc<Mutex<Executor>>,
     // 发布组
     vision_msg: Arc<Mutex<Vision>>,
     vision_pub: Arc<Publisher<Vision>>,
@@ -32,10 +33,10 @@ impl VisionNode {
             .context("vision节点上下文创建失败")?
         );
 
-        let excutor = Arc::new(Mutex::new(context.create_basic_executor()));
+        let executor = Arc::new(Mutex::new(context.create_basic_executor()));
 
-        let node: Arc<Node> = excutor.lock()
-            .map_err(|e| anyhow!("获取excutor锁失败: {}", e))?
+        let node: Arc<Node> = executor.lock()
+            .map_err(|e| anyhow!("获取executor锁失败: {}", e))?
             .create_node("vision_node")
             .context("无法创建vision节点")?
             .into();
@@ -66,8 +67,9 @@ impl VisionNode {
                     };
                     
                     // 处理接收到的消息
-                    // ...
-                    println!("Received frame: {:?}", msg);
+                    let _ = CvChain::from_ros_image(&msg_clone)
+                        .show("origin mat");
+                    
                 }
             )
             .context("无法创建visoion订阅器")?
@@ -76,7 +78,7 @@ impl VisionNode {
         Ok(Self {
             node,
             context,
-            excutor,
+            executor,
             vision_msg,
             vision_pub,
             frame_sub,

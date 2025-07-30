@@ -1,10 +1,10 @@
 [package]
-name = "mcv_rs"
+name = "vision"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name="mcv_node"
+name="vision_node"
 path="src/main.rs"
 
 [dependencies]
@@ -12,7 +12,7 @@ rclrs = "*"
 anyhow = "*"
 sensor_msgs = "*"
 std_msgs = "*"
-cv_tools = { path = "../install/cv_tools/share/cv_tools/rust" }
+messages = "*"
 
 [dependencies.opencv]
 version = "0.95"
