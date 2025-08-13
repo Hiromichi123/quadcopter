@@ -15,7 +15,7 @@ setup(
         'torch',
         'torchvision',
         'ultralytics',
-        'OpenCV',
+        'opencv-python',
         'pyyaml',
         'matplotlib',
         'tqdm',
@@ -24,16 +24,16 @@ setup(
         'messages', # 消息包
         'cv_bridge', # ROS2图像转换
         'sensor_msgs', # 图像消息
+        'nav_msgs', # 导航消息
     ],
     zip_safe=True,
     maintainer='Hiromichi123',
     maintainer_email='2271612727@qq.com',
     description='clip + yolo包',
     license='Apache License 2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'yolip = yolip.main:main'
+            'yolip = yolip.scripts.main:main'
         ],
     },
 )

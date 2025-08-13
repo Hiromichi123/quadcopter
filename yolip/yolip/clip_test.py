@@ -4,7 +4,7 @@ import cv2
 import cn_clip.clip as clip
 from cn_clip.clip import load_from_name
 
-prompt_words = ["毛绒玩具", "黄色鸭子"]
+prompt_words = ["大象", "老虎", "狼", "猴子", "孔雀"]
 device = "cuda" if torch.cuda.is_available() else "cpu"
 text = clip.tokenize(prompt_words).to(device) # 文本编码
 

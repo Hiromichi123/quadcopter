@@ -9,11 +9,12 @@
   <depend>torch</depend>
   <depend>torchvision</depend>
   <depend>ultralytics</depend>
-  <depend>OpenCV</depend>
+  <depend>opencv-python</depend>
   <depend>pyyaml</depend>
   <depend>matplotlib</depend>
   <depend>tqdm</depend>
   <depend>numpy</depend>
+  <depend>nav_msgs</depend>
   
   <depend>messages</depend>
   <depend>sensor_msgs</depend>
