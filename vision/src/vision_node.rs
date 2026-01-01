@@ -1,6 +1,6 @@
 /// 原对地摄像头
-#![allow(dead_code)]
-#![allow(unused_imports)]
+#[allow(dead_code)]
+#[allow(unused_imports)]
 use rclrs::*;
 use std::sync::{Arc, Mutex};
 use anyhow::{Result, Context as AnyhowContext, anyhow};

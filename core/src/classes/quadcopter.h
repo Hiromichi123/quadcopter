@@ -27,6 +27,8 @@ public:
     float roll, pitch; // 姿态角
     float dr, dp; // 角速度
 
+    rclcpp::Clock steady_clock; // 持久化的稳态时钟
+
     friend class flight_controller; // 为了保险
 
     quadcopter();

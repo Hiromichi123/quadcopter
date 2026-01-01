@@ -1,7 +1,7 @@
 #include<quadcopter.h>
 #include "flight_controller.h"
 
-quadcopter::quadcopter() : Node("quad_node") {
+quadcopter::quadcopter() : Node("quad_node"), steady_clock(RCL_STEADY_TIME) {
     rate = std::make_shared<rclcpp::Rate>(20.0);
 
     lidar_pos = std::make_shared<ros2_tools::msg::LidarPose>();
@@ -79,7 +79,7 @@ void quadcopter::pre_flight_checks_loop() {
             last_request = this->now();
         } else if (current_state->armed && current_state->mode == "OFFBOARD") { 
             RCLCPP_INFO(this->get_logger(), "armed and OFFBOARD success!");
-            flight_ctrl->fly_to_target(&simp); // 起飞点
+            flight_ctrl->fly_to_target(simp); // 起飞点
             break;
         }
         rate->sleep();
@@ -128,13 +128,13 @@ void quadcopter::main_loop() {
     while (rclcpp::ok()) {
         switch (flag) {
             case 0:
-                flight_ctrl->fly_to_target(&first_point);
+                flight_ctrl->fly_to_target(first_point);
                 RCLCPP_INFO(this->get_logger(), "到达指定高度");
                 flag = 1;
                 RCLCPP_INFO(this->get_logger(), "前进");
                 break;
             case 1:
-                flight_ctrl->fly_by_velocity(&vel1);
+                flight_ctrl->fly_by_velocity(vel1);
                 if (vision_msg->is_line_detected) {
                     RCLCPP_INFO(this->get_logger(), "发现直线");
                     flag = 2;
@@ -146,7 +146,7 @@ void quadcopter::main_loop() {
                 vel2.set_vyaw(vision_msg->angle_error/5);
                 if (default_altitude - z > 0.05) { vel2.set_vz(default_altitude - z); } 
                 else if (default_altitude - z < -0.05) { vel2.set_vz(default_altitude - z); }
-                flight_ctrl->fly_by_velocity(&vel2);
+                flight_ctrl->fly_by_velocity(vel2);
                 if (vision_msg->is_square_detected && !is_complete_cast) {
                     // 记录位置
                     tar1.set_x(x);
@@ -169,7 +169,7 @@ void quadcopter::main_loop() {
                 vel2.set_vyaw(0.0);
                 if (default_altitude - z > 0.05) { vel2.set_vz(default_altitude - z); } 
                 else if (default_altitude - z < -0.05) { vel2.set_vz(default_altitude - z); }
-                flight_ctrl->fly_by_velocity(&vel2);
+                flight_ctrl->fly_by_velocity(vel2);
                 if (std::abs(vision_msg->center_x1_error) < 20 && std::abs(vision_msg->center_y1_error) < 20) {
                     RCLCPP_INFO(this->get_logger(), "投掷");
                     // 投掷
@@ -179,7 +179,7 @@ void quadcopter::main_loop() {
                 }
                 break;
             case 4:
-                flight_ctrl->fly_to_target(&tar1);
+                flight_ctrl->fly_to_target(tar1);
                 vel2.set_vx(0.15);
                 RCLCPP_INFO(this->get_logger(), "继续巡线");
                 flag = 2;
@@ -190,13 +190,13 @@ void quadcopter::main_loop() {
                 vel2.set_vyaw(0.0);
                 if (default_altitude - z > 0.05) { vel2.set_vz(0.03); } 
                 else if (default_altitude - z < -0.05) { vel2.set_vz(-0.03); }
-                flight_ctrl->fly_by_velocity(&vel2);
+                flight_ctrl->fly_by_velocity(vel2);
                 if (std::abs(vision_msg->center_x2_error) < 20 && std::abs(vision_msg->center_y2_error) < 20) {
                     RCLCPP_INFO(this->get_logger(), "降落");
                     vel2.set_vx(0.0);
                     vel2.set_vy(0.0);
                     vel2.set_vz(-0.2);
-                    flight_ctrl->fly_by_vel_duration(&vel2, 5.0);
+                    flight_ctrl->fly_by_vel_duration(vel2, 5.0);
                     RCLCPP_INFO(this->get_logger(), "降落完成");
                     flag = 6;
                 }
