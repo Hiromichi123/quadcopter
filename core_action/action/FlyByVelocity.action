@@ -1,0 +1,21 @@
+# Goal: 速度控制参数
+float32 vx              # X 轴速度 (m/s)
+float32 vy              # Y 轴速度 (m/s)
+float32 vz              # Z 轴速度 (m/s)
+float32 vyaw            # 偏航角速度 (rad/s)
+float32 duration        # 持续时间（秒），默认持续发布
+bool maintain_altitude  # 是否保持高度（使用 P 控制器）
+float32 altitude_target # 目标高度（仅在 maintain_altitude=true 时有效）
+---
+# Result: 执行结果
+bool success            # 是否成功完成
+string message          # 结果信息
+float32 actual_duration # 实际执行时间
+float32 final_altitude  # 最终高度
+---
+# Feedback: 实时反馈
+float32 current_vx      # 当前 X 速度
+float32 current_vy      # 当前 Y 速度
+float32 current_vz      # 当前 Z 速度
+float32 current_altitude # 当前高度
+float32 elapsed_time    # 已用时间

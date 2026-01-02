@@ -1,0 +1,23 @@
+# Goal: 目标位置和飞行参数
+float32 x
+float32 y
+float32 z
+float32 yaw
+float32 timeout_sec       # 超时时间（秒），默认30秒
+float32 stable_time_sec   # 稳定时间（秒），默认2秒
+float32 tolerance         # 位置容差（米），默认0.1米
+---
+# Result: 飞行结果
+bool success              # 是否成功到达目标点
+string message            # 结果信息（成功/超时/取消等）
+float32 final_distance    # 最终与目标点的距离
+float32 total_time        # 总飞行时间
+---
+# Feedback: 实时反馈
+float32 distance_remaining  # 剩余距离（米）
+float32 current_x           # 当前 x 坐标
+float32 current_y           # 当前 y 坐标
+float32 current_z           # 当前 z 坐标
+float32 current_yaw         # 当前偏航角
+float32 elapsed_time        # 已用时间（秒）
+int32 stable_count          # 稳定计数器

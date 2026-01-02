@@ -38,6 +38,10 @@ void flight_controller::fly_to_target(const target& target, float timeout_sec, f
 
         rate->sleep();
     } while (rclcpp::ok() && stable_count < required_stable_frames);
+    
+    if (target.reached) {
+        RCLCPP_INFO(this->get_logger(), "Target Reached Successfully");
+    }
 }
 
 // target定点移动 (PID控制)
@@ -85,7 +89,7 @@ void flight_controller::fly_to_target_pid(const target& target, float timeout_se
         if (pos_check(target)) {
             stable_count++;
             if (stable_count >= required_stable_frames) {
-                RCLCPP_INFO(this->get_logger(), "Target Reached Stable (PID)");
+                RCLCPP_INFO(this->get_logger(), "Target Reached Successfully (PID)");
                 break;
             }
         } else {
@@ -140,16 +144,6 @@ bool flight_controller::pos_check(const target& target, float distance) {
     auto quad = quad_node.lock();
     if (!quad) return false;
 
-    // 注意：这里修改了 target.reached 成员，如果 target 是 const 引用，则无法修改
-    // 但原逻辑中 pos_check 会修改 target->reached 状态
-    // 如果传入 const target&，则不能修改 reached。
-    // 建议：将 reached 状态移除出 pos_check，或者 target 传入非 const 引用，或者 reached 设为 mutable
-    // 鉴于 target 类定义在 target.hpp 中，且 reached 是 public 成员，
-    // 为了保持 const 正确性，这里我们只做检查，不修改 target 的状态，或者使用 const_cast (不推荐)
-    // 更好的做法是让 pos_check 只负责检查，状态更新由调用者维护，或者 target 内部维护
-    // 这里为了兼容，我们假设 target 的 reached 只是个标志位，不影响 const 语义（虽然严格来说是修改了）
-    // 但为了编译通过，我们这里只返回 bool，不修改 target.reached
-    
     float dist_sq = std::pow(quad->lidar_pos->x - target.get_x(), 2) + 
                     std::pow(quad->lidar_pos->y - target.get_y(), 2) + 
                     std::pow(quad->lidar_pos->z - target.get_z(), 2);
@@ -161,9 +155,7 @@ bool flight_controller::pos_check(const target& target, float distance) {
     bool is_reached = std::sqrt(dist_sq) < distance &&
                       std::abs(quad->lidar_pos->yaw - target.get_yaw()) < 0.1;
     
-    // 如果确实需要修改 reached，可以使用 const_cast，但这是权宜之计
-    // const_cast<class target&>(target).reached = is_reached; 
-    // 或者修改 target.hpp 将 reached 设为 mutable
+    target.reached = is_reached; // 更新目标点的到达状态
     
     return is_reached; 
 }
@@ -177,6 +169,8 @@ bool flight_controller::pos_check(const target& target, float distance_x, float 
                       std::abs(quad->lidar_pos->y - target.get_y()) < distance_y &&
                       std::abs(quad->lidar_pos->z - target.get_z()) < distance_z && 
                       std::abs(quad->lidar_pos->yaw - target.get_yaw()) < 0.1;
+    
+    target.reached = is_reached; // 更新目标点的到达状态
     return is_reached;
 }
 
