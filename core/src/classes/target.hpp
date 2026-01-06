@@ -2,16 +2,17 @@
 #define TARGET_HPP
 
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <rclcpp/rclcpp.hpp>
 #include <cmath>
 
 // 目标点类
-class target {
+class Target {
 public:
     mutable bool reached; // 是否到达目标点
 
-    target() : reached(false) {}
+    Target() : reached(false) {}
     
-    target(float x, float y, float z, float yaw) : reached(false) {
+    Target(float x, float y, float z, float yaw) : reached(false) {
         pose_stamped.header.stamp = rclcpp::Clock().now(); // 时间戳
         pose_stamped.header.frame_id = "map"; // map代表全局坐标系
         pose_stamped.pose.position.x = x;
@@ -21,6 +22,11 @@ public:
         pose_stamped.pose.orientation.y = 0.0;
         pose_stamped.pose.orientation.z = std::sin(yaw / 2.0);
         pose_stamped.pose.orientation.w = std::cos(yaw / 2.0);
+    }
+
+    // 从 PoseStamped 快速构造，必须显式调用
+    explicit Target(const geometry_msgs::msg::PoseStamped& pose) : reached(false) {
+        pose_stamped = pose;
     }
 
     // 获取成员
@@ -46,10 +52,6 @@ public:
 
     // 设置时间戳
     void set_time(rclcpp::Time time) { pose_stamped.header.stamp = time; }
-
-    // 允许 target 直接转换为 PoseStamped
-    operator geometry_msgs::msg::PoseStamped&() { return pose_stamped; }
-    operator const geometry_msgs::msg::PoseStamped&() const { return pose_stamped; }
 
 private:
     geometry_msgs::msg::PoseStamped pose_stamped;

@@ -4,7 +4,7 @@
 flight_controller::flight_controller(std::shared_ptr<quadcopter> quad_node) : Node("flight_controller_node"), quad_node(quad_node), rate(std::make_shared<rclcpp::Rate>(20)) {}
 
 // target定点移动
-void flight_controller::fly_to_target(const target& target, float timeout_sec, float stable_time_sec, int frame_rate) {
+void flight_controller::fly_to_target(const Target& target, float timeout_sec, float stable_time_sec, int frame_rate) {
     auto quad = quad_node.lock();
     if (!quad) {
         RCLCPP_ERROR(this->get_logger(), "Quadcopter node is invalid!");
@@ -16,8 +16,8 @@ void flight_controller::fly_to_target(const target& target, float timeout_sec, f
     int stable_count = 0;
     const int required_stable_frames = static_cast<int>(stable_time_sec * frame_rate);
 
-    // 创建一个可修改的 target 副本用于更新时间戳
-    class target target_cmd = target;
+    // 创建一个可修改的 Target 副本用于更新时间戳
+    Target target_cmd = target;
 
     do {
         // 超时检查
@@ -30,11 +30,8 @@ void flight_controller::fly_to_target(const target& target, float timeout_sec, f
         quad->pos_pub->publish(target_cmd.get_pose());
         
         // 稳定性检查
-        if (pos_check(target_cmd)) {
-            stable_count++;
-        } else {
-            stable_count = 0;
-        }
+        if (pos_check(target_cmd)) stable_count++;
+        else stable_count = 0; 
 
         rate->sleep();
     } while (rclcpp::ok() && stable_count < required_stable_frames);
@@ -45,7 +42,7 @@ void flight_controller::fly_to_target(const target& target, float timeout_sec, f
 }
 
 // target定点移动 (PID控制)
-void flight_controller::fly_to_target_pid(const target& target, float timeout_sec, float stable_time_sec, int frame_rate) {
+void flight_controller::fly_to_target_pid(const Target& target, float timeout_sec, float stable_time_sec, int frame_rate) {
     auto quad = quad_node.lock();
     if (!quad) {
         RCLCPP_ERROR(this->get_logger(), "Quadcopter node is invalid!");
@@ -74,9 +71,7 @@ void flight_controller::fly_to_target_pid(const target& target, float timeout_se
     while (rclcpp::ok()) {
         auto current_time = quad->steady_clock.now();
         double raw_dt = (current_time - last_time).seconds();
-        double dt = raw_dt > 0
-                    ? raw_dt
-                    : 0.05; // 防止除0
+        double dt = raw_dt > 0 ? raw_dt : 0.05; // 防止除0
         last_time = current_time;
 
         // 1. 超时检查
@@ -128,19 +123,19 @@ void flight_controller::fly_to_target_pid(const target& target, float timeout_se
         vz = std::clamp(vz, -max_vel_z, max_vel_z);
 
         // 构造速度指令
-        velocity v(vx, vy, vz);
+        Velocity v(vx, vy, vz);
         fly_by_velocity(v);
         
         rate->sleep();
     }
     
     // 到达目标后悬停
-    velocity stop(0, 0, 0);
+    Velocity stop(0, 0, 0);
     fly_by_velocity(stop);
 }
 
 // 自身位置检查，distance为误差默认0.1
-bool flight_controller::pos_check(const target& target, float distance) {
+bool flight_controller::pos_check(const Target& target, float distance) {
     auto quad = quad_node.lock();
     if (!quad) return false;
 
@@ -155,13 +150,14 @@ bool flight_controller::pos_check(const target& target, float distance) {
     bool is_reached = std::sqrt(dist_sq) < distance &&
                       std::abs(quad->lidar_pos->yaw - target.get_yaw()) < 0.1;
     
-    target.reached = is_reached; // 更新目标点的到达状态
+    // 更新目标点的到达状态（通过非 const 访问，外部仍可观察）
+    const_cast<Target&>(target).reached = is_reached;
     
     return is_reached; 
 }
 
 // 严格检查，多维误差
-bool flight_controller::pos_check(const target& target, float distance_x, float distance_y, float distance_z) {
+bool flight_controller::pos_check(const Target& target, float distance_x, float distance_y, float distance_z) {
     auto quad = quad_node.lock();
     if (!quad) return false;
 
@@ -170,47 +166,47 @@ bool flight_controller::pos_check(const target& target, float distance_x, float 
                       std::abs(quad->lidar_pos->z - target.get_z()) < distance_z && 
                       std::abs(quad->lidar_pos->yaw - target.get_yaw()) < 0.1;
     
-    target.reached = is_reached; // 更新目标点的到达状态
+    const_cast<Target&>(target).reached = is_reached; // 更新目标点的到达状态
     return is_reached;
 }
 
 // velocity速度飞行，单次发布
-void flight_controller::fly_by_velocity(const velocity& velocity) {
+void flight_controller::fly_by_velocity(const Velocity& velocity) {
     auto quad = quad_node.lock();
     if (!quad) return;
 
     // velocity 是 const，不能调用非 const 方法 set_time
-    // 创建副本
-    class velocity vel_cmd = velocity;
+    Velocity vel_cmd = velocity; // 创建副本
     vel_cmd.set_time(rclcpp::Clock().now());
     quad->vel_pub->publish(vel_cmd.get_twist());
 }
 
 // velocity速度飞行，发布持续duration
-void flight_controller::fly_by_vel_duration(const velocity& velocity, float duration) {
+void flight_controller::fly_by_vel_duration(const Velocity& velocity, float duration) {
     auto quad = quad_node.lock();
     if (!quad) return;
 
     rclcpp::Time start_time = quad->steady_clock.now();
     float start_altitude = quad->lidar_pos->z; // 记录初始高度
     
-    // 创建副本，避免修改传入的原始 velocity 对象
-    class velocity vel_cmd = velocity;
+    Velocity vel_cmd = velocity; // 创建副本
 
     while (rclcpp::ok()) {
-        // 每次循环重新获取锁，虽然这里 quad 局部变量一直有效，但为了保险起见
-        // 其实只要 quad 没析构，引用计数就不会为0，所以这里直接用 quad 即可
-        
+        // quad局部变量一直有效，但为了保险起见，每次循环重新获取锁
+        // 只要 quad 没析构，引用计数>0，其实直接用即可
+        auto quad = quad_node.lock();
+        if (!quad) return;
+
         rclcpp::Time current_time = quad->steady_clock.now();
         if ((current_time - start_time).seconds() >= duration) break;
 
         // 高度保持控制 (P控制器)
         float z_error = start_altitude - quad->lidar_pos->z;
         
-        // 如果误差超过死区，进行修正
+        // 误差超过死区，进行修正
         if (std::abs(z_error) > 0.1) {
-            // 简单的 P 控制，限制最大垂直速度为 0.5 m/s
-            float vz_correction = std::clamp(z_error * 1.0f, -0.5f, 0.5f);
+            // 简单的 P 控制，vz_max=0.1 m/s
+            float vz_correction = std::clamp(z_error * 1.0f, -0.1f, 0.1f);
             vel_cmd.set_vz(vz_correction);
         } else {
             // 在死区内，保持垂直速度为 0 (或者恢复原始指令，这里假设是定高飞行)
@@ -223,8 +219,8 @@ void flight_controller::fly_by_vel_duration(const velocity& velocity, float dura
 }
 
 // 路径航点飞行，已兼容target版本
-void flight_controller::fly_by_path(path* path) {
-    target waypoint;
+void flight_controller::fly_by_path(Path* path) {
+    Target waypoint;
     while(rclcpp::ok()) {
         if (path->get_next_waypoint(waypoint)) {
             fly_to_target(waypoint);

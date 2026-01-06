@@ -55,7 +55,7 @@ void quadcopter::pre_flight_checks_loop() {
     *arm_request = arm_cmd;
 
     // 起飞点预发布
-    target simp(0, 0, 0.5, 0);
+    Target simp(0, 0, 0.5, 0);
     for (int i = 0; i < 20; ++i) {
         simp.set_time(this->now());
         pos_pub->publish(simp.get_pose());
@@ -90,12 +90,13 @@ void quadcopter::pre_flight_checks_loop() {
 void quadcopter::main_loop() {
     /* -----------------------示例-------------------------------
     -------------------------------------------------------------
-    target first_point(1.0, 0, 0.5, 0); // 第一个目标点
-    velocity first_vel(0.1, 0, 0); // 第一段速度
-    path path1; // 第一段路径
-    path1.add_waypoint(target(1.0, 0, 0.5, 0)); // 被移除
-    path1.add_waypoint(target(0, 1.0, 0.5, 0));
-    path1.add_waypoint(target(-1.0, 0, 2.5, 0));
+    Target first_point(1.0, 0, 0.5, 0); // 第一个目标点
+    Velocity first_vel(0.1, 0, 0); // 第一段速度
+    Path path1; // 第一段路径
+    path1.add_waypoint(Target(1.0, 0, 0.5, 0)); // 被移除
+    Target tar_point(1.0, 1.0, 1.0, 0);
+    path1.add_waypoint(tar_point);
+    path1.add_waypoint(-1.0, 0, 2.5, 0);
     path1.remove_waypoint(0); // 移除第一个点
 
     int state = 0;
@@ -121,10 +122,10 @@ void quadcopter::main_loop() {
     int flag = 0;
     float default_altitude = 1.5;
     bool is_complete_cast = false;
-    target first_point(0.0, 0.0, 1.5, 0.0);
-    target tar1(0.0, 0.0, 0.0, 0.0);
-    velocity vel1(0.1, 0.0, 0.0, 0.0);
-    velocity vel2(0.15, 0.0, 0.0, 0.0);
+    Target first_point(0.0, 0.0, 1.5, 0.0);
+    Target tar1(0.0, 0.0, 0.0, 0.0);
+    Velocity vel1(0.1, 0.0, 0.0, 0.0);
+    Velocity vel2(0.15, 0.0, 0.0, 0.0);
     while (rclcpp::ok()) {
         switch (flag) {
             case 0:

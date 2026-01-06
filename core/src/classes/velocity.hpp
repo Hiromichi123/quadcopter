@@ -5,9 +5,9 @@
 #include <rclcpp/rclcpp.hpp>
 
 // 速度类
-class velocity {
+class Velocity {
 public:
-    velocity(float v_x, float v_y, float v_z, float v_yaw=0.0, float v_pitch=0.0, float v_roll=0.0) {
+    Velocity(float v_x, float v_y, float v_z, float v_yaw=0.0, float v_pitch=0.0, float v_roll=0.0) {
         twist_stamped.twist.linear.x = v_x;
         twist_stamped.twist.linear.y = v_y;
         twist_stamped.twist.linear.z = v_z;
@@ -37,10 +37,6 @@ public:
 
     // 设置时间戳
     void set_time(rclcpp::Time time) {twist_stamped.header.stamp = time;}
-
-    // 允许 velocity 直接转换为 TwistStamped
-    operator geometry_msgs::msg::TwistStamped&() { return twist_stamped; }
-    operator const geometry_msgs::msg::TwistStamped&() const { return twist_stamped; }
 
 protected:
     geometry_msgs::msg::TwistStamped twist_stamped;
